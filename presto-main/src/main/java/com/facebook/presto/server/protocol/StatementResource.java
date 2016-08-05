@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -24,10 +25,12 @@ import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -63,6 +66,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
@@ -94,6 +98,7 @@ public class StatementResource
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
     @Inject
     public StatementResource(
@@ -102,7 +107,8 @@ public class StatementResource
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            @ForStatementResource ScheduledExecutorService timeoutExecutor,
+            JsonCodec<QuerySubmission> querySubmissionCodec)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -110,6 +116,7 @@ public class StatementResource
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.querySubmissionCodec = requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
     }
@@ -139,12 +146,14 @@ public class StatementResource
             proto = uriInfo.getRequestUri().getScheme();
         }
 
-        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
+        QuerySubmission querySubmission = parseStringToQuerySubmission(servletRequest, statement, querySubmissionCodec);
+
+        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, querySubmission.getPreparedStatements());
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), StatementResource.class.getSimpleName()));
         Query query = Query.create(
                 sessionContext,
-                statement,
+                querySubmission.getQuery(),
                 queryManager,
                 sessionPropertyManager,
                 exchangeClient,
@@ -155,6 +164,21 @@ public class StatementResource
 
         QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto);
         return toResponse(query, queryResults);
+    }
+
+    /**
+     * The query can be sent from the client either in plaintext or via a Jackson-serialized JSON representation of
+     * a QuerySubmission object, which includes prepared statements in the body of the HTTP request as well as
+     * the query.
+     */
+    private static QuerySubmission parseStringToQuerySubmission(HttpServletRequest servletRequest, String statement, JsonCodec<QuerySubmission> querySubmissionCodec)
+    {
+        if (servletRequest.getHeader(PRESTO_PREPARED_STATEMENT_IN_BODY) != null) {
+            return querySubmissionCodec.fromJson(statement);
+        }
+        else {
+            return new QuerySubmission(statement, ImmutableMap.of());
+        }
     }
 
     @GET
