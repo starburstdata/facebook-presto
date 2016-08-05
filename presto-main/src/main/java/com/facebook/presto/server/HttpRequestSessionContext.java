@@ -93,7 +93,7 @@ public final class HttpRequestSessionContext
     private final boolean clientTransactionSupport;
     private final String clientInfo;
 
-    public HttpRequestSessionContext(HttpServletRequest servletRequest)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, Map<String, String> additionalPreparedStatements)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -147,7 +147,7 @@ public final class HttpRequestSessionContext
         this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
 
-        preparedStatements = parsePreparedStatementsHeaders(servletRequest);
+        preparedStatements = parsePreparedStatementsHeaders(servletRequest, additionalPreparedStatements);
 
         String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
         clientTransactionSupport = transactionIdHeader != null;
@@ -321,7 +321,7 @@ public final class HttpRequestSessionContext
         }
     }
 
-    private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest)
+    private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest, Map<String, String> additionalPreparedStatements)
     {
         ImmutableMap.Builder<String, String> preparedStatements = ImmutableMap.builder();
         for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
@@ -349,6 +349,7 @@ public final class HttpRequestSessionContext
 
             preparedStatements.put(statementName, sqlString);
         }
+        preparedStatements.putAll(additionalPreparedStatements);
         return preparedStatements.build();
     }
 
