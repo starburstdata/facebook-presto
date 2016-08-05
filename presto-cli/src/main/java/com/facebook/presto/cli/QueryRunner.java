@@ -15,8 +15,10 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
+import io.airlift.json.JsonCodec;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -40,9 +42,11 @@ public class QueryRunner
 {
     private final AtomicReference<ClientSession> session;
     private final OkHttpClient httpClient;
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
     public QueryRunner(
             ClientSession session,
+            JsonCodec<QuerySubmission> querySubmissionCodec,
             Optional<HostAndPort> socksProxy,
             Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
@@ -81,6 +85,7 @@ public class QueryRunner
         }
 
         this.httpClient = builder.build();
+        this.querySubmissionCodec = requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
     }
 
     public ClientSession getSession()
@@ -105,7 +110,7 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
-        return new StatementClient(httpClient, session, query);
+        return new StatementClient(httpClient, querySubmissionCodec, session, query);
     }
 
     @Override
