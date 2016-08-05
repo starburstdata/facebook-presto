@@ -16,6 +16,7 @@ package com.facebook.presto.benchmark.driver;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryError;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.client.StatementStats;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +28,7 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.JsonResponseHandler;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 
@@ -66,6 +68,7 @@ public class BenchmarkQueryRunner
     private final HttpClient httpClient;
     private final OkHttpClient okHttpClient;
     private final List<URI> nodes;
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
     private int failures;
 
@@ -81,6 +84,8 @@ public class BenchmarkQueryRunner
         this.maxFailures = maxFailures;
 
         this.debug = debug;
+
+        this.querySubmissionCodec = jsonCodec(QuerySubmission.class);
 
         requireNonNull(socksProxy, "socksProxy is null");
         HttpClientConfig httpClientConfig = new HttpClientConfig();
@@ -156,6 +161,7 @@ public class BenchmarkQueryRunner
     {
         failures = 0;
         while (true) {
+            // read query output
             ImmutableList.Builder<String> schemas = ImmutableList.builder();
             AtomicBoolean success = new AtomicBoolean(true);
             execute(
@@ -200,7 +206,7 @@ public class BenchmarkQueryRunner
     private StatementStats execute(ClientSession session, String query, Consumer<QueryData> queryDataConsumer, Consumer<QueryError> queryErrorConsumer)
     {
         // start query
-        try (StatementClient client = newStatementClient(okHttpClient, session, query)) {
+        try (StatementClient client = newStatementClient(okHttpClient, querySubmissionCodec, session, query)) {
             // read query output
             while (client.isRunning()) {
                 queryDataConsumer.accept(client.currentData());

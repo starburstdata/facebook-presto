@@ -16,6 +16,7 @@ package com.facebook.presto.cli;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.QuerySubmission;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
@@ -132,6 +133,7 @@ public class TestQueryRunner
         return new QueryRunner(
                 clientSession,
                 false,
+                jsonCodec(QuerySubmission.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

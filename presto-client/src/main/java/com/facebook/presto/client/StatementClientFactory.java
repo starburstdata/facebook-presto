@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.client;
 
+import io.airlift.json.JsonCodec;
 import okhttp3.OkHttpClient;
+
+import static io.airlift.json.JsonCodec.jsonCodec;
 
 public final class StatementClientFactory
 {
@@ -21,6 +24,11 @@ public final class StatementClientFactory
 
     public static StatementClient newStatementClient(OkHttpClient httpClient, ClientSession session, String query)
     {
-        return new StatementClientV1(httpClient, session, query);
+        return new StatementClientV1(httpClient, jsonCodec(QuerySubmission.class), session, query);
+    }
+
+    public static StatementClient newStatementClient(OkHttpClient httpClient, JsonCodec<QuerySubmission> querySubmissionCodec, ClientSession session, String query)
+    {
+        return new StatementClientV1(httpClient, querySubmissionCodec, session, query);
     }
 }
