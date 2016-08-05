@@ -45,6 +45,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PATH;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
@@ -76,7 +77,7 @@ public class TestQuerySessionSupplier
     @Test
     public void testCreateSession()
     {
-        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST, ImmutableMap.of());
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
@@ -114,7 +115,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_USER, "testUser")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1);
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1, ImmutableMap.of());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         HttpServletRequest request2 = new MockHttpServletRequest(
@@ -123,7 +124,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_CLIENT_TAGS, "")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2);
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, ImmutableMap.of());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -136,7 +137,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_CLIENT_CAPABILITIES, "foo, bar")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1);
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1, ImmutableMap.of());
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
         HttpServletRequest request2 = new MockHttpServletRequest(
@@ -144,7 +145,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_USER, "testUser")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2);
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, ImmutableMap.of());
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
@@ -157,7 +158,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_TIME_ZONE, "unknown_timezone")
                         .build(),
                 "testRemote");
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, ImmutableMap.of());
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
@@ -191,5 +192,41 @@ public class TestQuerySessionSupplier
 
         assertEquals(path.getParsedPath(), expected);
         assertEquals(path.toString(), Joiner.on(", ").join(expected));
+    }
+
+    public void testPreparedStatementsInBody()
+    {
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_LANGUAGE, "zh-TW")
+                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_CLIENT_INFO, "client-info")
+                        .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
+                        .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned" + HASH_PARTITION_COUNT + " = 43")
+                        .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
+                        .put(PRESTO_PREPARED_STATEMENT_IN_BODY, "true")
+                        .build(),
+                "testRemote");
+
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, ImmutableMap.<String, String>builder()
+                .put("query3", "select * from alpha")
+                .put("query4", "select * from beta")
+                .build());
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                new SessionPropertyManager(),
+                new SqlEnvironmentConfig());
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
+                .put("query1", "select * from foo")
+                .put("query2", "select * from bar")
+                .put("query3", "select * from alpha")
+                .put("query4", "select * from beta")
+                .build());
     }
 }
