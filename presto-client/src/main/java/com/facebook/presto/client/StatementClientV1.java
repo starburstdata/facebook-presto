@@ -84,7 +84,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class StatementClientV1
         implements StatementClient
 {
-    private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
+    private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("text/json; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
@@ -108,16 +108,19 @@ class StatementClientV1
     private final Duration requestTimeoutNanos;
     private final String user;
     private final String clientCapabilities;
+    private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    public StatementClientV1(OkHttpClient httpClient, ClientSession session, String query)
+    public StatementClientV1(OkHttpClient httpClient, JsonCodec<QuerySubmission> querySubmissionCodec, ClientSession session, String query)
     {
         requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
         this.httpClient = httpClient;
+        this.querySubmissionCodec = querySubmissionCodec;
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
@@ -144,7 +147,8 @@ class StatementClientV1
         url = url.newBuilder().encodedPath("/v1/statement").build();
 
         Request.Builder builder = prepareRequest(url)
-                .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
+                .post(RequestBody.create(MEDIA_TYPE_JSON, querySubmissionCodec.toJson(new QuerySubmission(query, session.getPreparedStatements()))))
+                .addHeader(PrestoHeaders.PRESTO_PREPARED_STATEMENT_IN_BODY, "true");
 
         if (session.getSource() != null) {
             builder.addHeader(PRESTO_SOURCE, session.getSource());
@@ -180,11 +184,6 @@ class StatementClientV1
         Map<String, String> resourceEstimates = session.getResourceEstimates();
         for (Entry<String, String> entry : resourceEstimates.entrySet()) {
             builder.addHeader(PRESTO_RESOURCE_ESTIMATE, entry.getKey() + "=" + entry.getValue());
-        }
-
-        Map<String, String> statements = session.getPreparedStatements();
-        for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
         builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
