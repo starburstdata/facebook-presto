@@ -121,11 +121,13 @@ public class TestQueryRunner
                 ImmutableList.of(new Column("_col0", BigintType.BIGINT)),
                 ImmutableList.of(ImmutableList.of(123)),
                 StatementStats.builder().setState("FINISHED").build(),
-                //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+//                new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                null,
+                ImmutableMap.of(),
+                ImmutableSet.of());
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
 
