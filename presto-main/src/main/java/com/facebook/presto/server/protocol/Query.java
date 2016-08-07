@@ -383,7 +383,9 @@ class Query
                             .build(),
                     null,
                     null,
-                    null);
+                    null,
+                    ImmutableMap.of(),
+                    ImmutableSet.of());
 
             cacheLastResults(queryResults);
             return queryResults;
@@ -484,7 +486,9 @@ class Query
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
                 queryInfo.getUpdateType(),
-                updateCount);
+                updateCount,
+                addedPreparedStatements,
+                deallocatedPreparedStatements);
 
         cacheLastResults(queryResults);
         return queryResults;

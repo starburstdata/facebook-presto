@@ -16,6 +16,8 @@ package com.facebook.presto.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -23,6 +25,8 @@ import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.client.FixJsonDataUtils.fixData;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -44,6 +48,8 @@ public class QueryResults
     private final QueryError error;
     private final String updateType;
     private final Long updateCount;
+    private final Map<String, String> addedPreparedStatements;
+    private final Set<String> deallocatedPreparedStatements;
 
     @JsonCreator
     public QueryResults(
@@ -56,9 +62,11 @@ public class QueryResults
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("updateCount") Long updateCount)
+            @JsonProperty("updateCount") Long updateCount,
+            @JsonProperty("addedPreparedStatements") Map<String, String> addedPreparedStatements,
+            @JsonProperty("deallocatedPreparedStatements") Set<String> deallocatedPreparedStatements)
     {
-        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount);
+        this(id, infoUri, partialCancelUri, nextUri, columns, fixData(columns, data), stats, error, updateType, updateCount, addedPreparedStatements, deallocatedPreparedStatements);
     }
 
     public QueryResults(
@@ -71,7 +79,9 @@ public class QueryResults
             StatementStats stats,
             QueryError error,
             String updateType,
-            Long updateCount)
+            Long updateCount,
+            Map<String, String> addedPreparedStatements,
+            Set<String> deallocatedPreparedStatements)
     {
         this.id = requireNonNull(id, "id is null");
         this.infoUri = requireNonNull(infoUri, "infoUri is null");
@@ -84,6 +94,10 @@ public class QueryResults
         this.error = error;
         this.updateType = updateType;
         this.updateCount = updateCount;
+        requireNonNull(addedPreparedStatements, "addedPreparedStatements is null");
+        this.addedPreparedStatements = ImmutableMap.copyOf(addedPreparedStatements);
+        requireNonNull(deallocatedPreparedStatements, "deallocatedPreparedStatements is null");
+        this.deallocatedPreparedStatements = ImmutableSet.copyOf(deallocatedPreparedStatements);
     }
 
     @Nonnull
@@ -166,6 +180,20 @@ public class QueryResults
         return updateCount;
     }
 
+    @Nonnull
+    @JsonProperty
+    public Map<String, String> getAddedPreparedStatements()
+    {
+        return addedPreparedStatements;
+    }
+
+    @Nonnull
+    @JsonProperty
+    public Set<String> getDeallocatedPreparedStatements()
+    {
+        return deallocatedPreparedStatements;
+    }
+
     @Override
     public String toString()
     {
@@ -180,6 +208,8 @@ public class QueryResults
                 .add("error", error)
                 .add("updateType", updateType)
                 .add("updateCount", updateCount)
+                .add("addedPreparedStatements", addedPreparedStatements)
+                .add("deallocatedPreparedStatements", deallocatedPreparedStatements)
                 .toString();
     }
 }
