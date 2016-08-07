@@ -168,7 +168,7 @@ public class StatementResource
         queries.put(query.getQueryId(), query);
 
         QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto, DEFAULT_TARGET_RESULT_SIZE);
-        return toResponse(query, queryResults);
+        return toResponse(query, queryResults, servletRequest);
     }
 
     /**
@@ -196,7 +196,8 @@ public class StatementResource
             @QueryParam("targetResultSize") DataSize targetResultSize,
             @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse,
+            @Context HttpServletRequest servletRequest)
     {
         Query query = queries.get(queryId);
         if (query == null) {
@@ -207,7 +208,7 @@ public class StatementResource
             proto = uriInfo.getRequestUri().getScheme();
         }
 
-        asyncQueryResults(query, OptionalLong.of(token), maxWait, targetResultSize, uriInfo, proto, asyncResponse);
+        asyncQueryResults(query, OptionalLong.of(token), maxWait, targetResultSize, uriInfo, proto, asyncResponse, servletRequest);
     }
 
     private void asyncQueryResults(
@@ -217,7 +218,8 @@ public class StatementResource
             DataSize targetResultSize,
             UriInfo uriInfo,
             String scheme,
-            AsyncResponse asyncResponse)
+            AsyncResponse asyncResponse,
+            HttpServletRequest servletRequest)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
         if (targetResultSize == null) {
@@ -228,12 +230,12 @@ public class StatementResource
         }
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults, servletRequest), directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private static Response toResponse(Query query, QueryResults queryResults)
+    private static Response toResponse(Query query, QueryResults queryResults, HttpServletRequest servletRequest)
     {
         ResponseBuilder response = Response.ok(queryResults);
 
@@ -249,16 +251,18 @@ public class StatementResource
         query.getResetSessionProperties()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
 
-        // add added prepare statements
-        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
-            String encodedKey = urlEncode(entry.getKey());
-            String encodedValue = urlEncode(entry.getValue());
-            response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
-        }
+        if (servletRequest.getHeader(PRESTO_PREPARED_STATEMENT_IN_BODY) == null) {
+            // add added prepare statements
+            for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
+                String encodedKey = urlEncode(entry.getKey());
+                String encodedValue = urlEncode(entry.getValue());
+                response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+            }
 
-        // add deallocated prepare statements
-        for (String name : query.getDeallocatedPreparedStatements()) {
-            response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+            // add deallocated prepare statements
+            for (String name : query.getDeallocatedPreparedStatements()) {
+                response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+            }
         }
 
         // add new transaction ID

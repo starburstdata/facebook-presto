@@ -18,6 +18,8 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -93,7 +95,9 @@ public class TestProgressMonitor
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                null,
+                ImmutableMap.of(),
+                ImmutableSet.of());
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
