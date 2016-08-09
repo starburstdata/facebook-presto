@@ -209,7 +209,7 @@ public class StatementResource
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait);
-        
+
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults, servletRequest), directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
