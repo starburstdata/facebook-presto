@@ -56,6 +56,7 @@ public final class HiveSessionProperties
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String WRITER_SORT_BUFFER_SIZE = "writer_sort_buffer_size";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    private static final String MULTI_FILE_BUCKETING_ENABLED = "multi_file_bucketing_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -187,7 +188,12 @@ public final class HiveSessionProperties
                         STATISTICS_ENABLED,
                         "Experimental: Expose table statistics",
                         hiveClientConfig.isTableStatisticsEnabled(),
-                        false));
+                        false),
+                booleanSessionProperty(
+                        MULTI_FILE_BUCKETING_ENABLED,
+                        "Allow multiple files per bucket for clustered table",
+                        hiveClientConfig.isMultiFileBucketingEnabled(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -332,6 +338,11 @@ public final class HiveSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isMultiFileBucketingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MULTI_FILE_BUCKETING_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
