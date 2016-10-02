@@ -124,6 +124,7 @@ public class HiveClientConfig
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
     private boolean hdfsWireEncryptionEnabled;
+    private boolean multiFileBucketingEnabled;
 
     private boolean skipDeletionForAlter;
 
@@ -1089,9 +1090,21 @@ public class HiveClientConfig
 
     @Config("hive.collect-column-statistics-on-write")
     @ConfigDescription("Enables automatic column level statistics collection on write")
-    public HiveClientConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite)
-    {
+    public HiveClientConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite) {
         this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
+        return this;
+    }
+
+    public boolean isMultiFileBucketingEnabled()
+    {
+        return multiFileBucketingEnabled;
+    }
+
+    @Config("hive.multi-file-bucketing.enabled")
+    @ConfigDescription("Allow multiple files per bucket for clustered table")
+    public HiveClientConfig setMultiFileBucketingEnabled(boolean multiFileBucketingEnabled)
+    {
+        this.multiFileBucketingEnabled = multiFileBucketingEnabled;
         return this;
     }
 }
