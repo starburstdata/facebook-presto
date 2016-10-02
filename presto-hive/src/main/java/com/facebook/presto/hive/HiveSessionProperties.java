@@ -73,6 +73,7 @@ public final class HiveSessionProperties
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
+    private static final String MULTI_FILE_BUCKETING_ENABLED = "multi_file_bucketing_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -278,7 +279,12 @@ public final class HiveSessionProperties
                         COLLECT_COLUMN_STATISTICS_ON_WRITE,
                         "Experimental: Enables automatic column level statistics collection on write",
                         hiveClientConfig.isCollectColumnStatisticsOnWrite(),
-                        false));
+                        false),
+                booleanProperty(
+                        MULTI_FILE_BUCKETING_ENABLED,
+                        "Allow multiple files per bucket for clustered table",
+                        hiveClientConfig.isMultiFileBucketingEnabled(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -460,6 +466,11 @@ public final class HiveSessionProperties
     public static boolean isCollectColumnStatisticsOnWrite(ConnectorSession session)
     {
         return session.getProperty(COLLECT_COLUMN_STATISTICS_ON_WRITE, Boolean.class);
+    }
+
+    public static boolean isMultiFileBucketingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MULTI_FILE_BUCKETING_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
