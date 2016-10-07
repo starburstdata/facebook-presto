@@ -122,6 +122,7 @@ public class HiveClientConfig
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
     private boolean multiFileBucketingEnabled;
+    private boolean emptyBucketedPartitionsEnabled;
 
     private boolean skipDeletionForAlter;
 
@@ -1056,6 +1057,19 @@ public class HiveClientConfig
     public HiveClientConfig setMultiFileBucketingEnabled(boolean multiFileBucketingEnabled)
     {
         this.multiFileBucketingEnabled = multiFileBucketingEnabled;
+        return this;
+    }
+
+    public boolean isEmptyBucketedPartitionsEnabled()
+    {
+        return emptyBucketedPartitionsEnabled;
+    }
+
+    @Config("hive.empty-bucketed-partitions.enabled")
+    @ConfigDescription("Allow partitions without files for clustered table")
+    public HiveClientConfig setEmptyBucketedPartitionsEnabled(boolean emptyBucketedPartitionsEnabled)
+    {
+        this.emptyBucketedPartitionsEnabled = emptyBucketedPartitionsEnabled;
         return this;
     }
 }
