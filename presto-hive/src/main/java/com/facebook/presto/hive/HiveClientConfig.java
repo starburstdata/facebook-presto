@@ -125,6 +125,7 @@ public class HiveClientConfig
     private boolean hdfsImpersonationEnabled;
     private boolean hdfsWireEncryptionEnabled;
     private boolean multiFileBucketingEnabled;
+    private boolean emptyBucketedPartitionsEnabled;
 
     private boolean skipDeletionForAlter;
 
@@ -1090,7 +1091,8 @@ public class HiveClientConfig
 
     @Config("hive.collect-column-statistics-on-write")
     @ConfigDescription("Enables automatic column level statistics collection on write")
-    public HiveClientConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite) {
+    public HiveClientConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite)
+    {
         this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
         return this;
     }
@@ -1105,6 +1107,19 @@ public class HiveClientConfig
     public HiveClientConfig setMultiFileBucketingEnabled(boolean multiFileBucketingEnabled)
     {
         this.multiFileBucketingEnabled = multiFileBucketingEnabled;
+        return this;
+    }
+
+    public boolean isEmptyBucketedPartitionsEnabled()
+    {
+        return emptyBucketedPartitionsEnabled;
+    }
+
+    @Config("hive.empty-bucketed-partitions.enabled")
+    @ConfigDescription("Allow partitions without files for clustered table")
+    public HiveClientConfig setEmptyBucketedPartitionsEnabled(boolean emptyBucketedPartitionsEnabled)
+    {
+        this.emptyBucketedPartitionsEnabled = emptyBucketedPartitionsEnabled;
         return this;
     }
 }

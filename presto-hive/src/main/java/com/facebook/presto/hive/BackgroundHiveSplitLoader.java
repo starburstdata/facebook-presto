@@ -75,6 +75,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.isEmptyBucketedPartitionsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isForceLocalScheduling;
 import static com.facebook.presto.hive.HiveSessionProperties.isMultiFileBucketingEnabled;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
@@ -91,6 +92,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
+import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
@@ -416,6 +418,13 @@ public class BackgroundHiveSplitLoader
 
             if (files.size() == bucketCount) {
                 groupedFiles = getBucketFilesSetsSingle(files);
+            }
+            else if (files.size() == 0 && isEmptyBucketedPartitionsEnabled(session)) {
+                ImmutableList.Builder<Set<LocatedFileStatus>> emptyBuckets = ImmutableList.builder();
+                for (int i = 0; i < bucketCount; ++i) {
+                    emptyBuckets.add(emptySet());
+                }
+                groupedFiles = emptyBuckets.build();
             }
             else if (isMultiFileBucketingEnabled(session)) {
                 groupedFiles = getBucketFilesSetsMulti(files);
