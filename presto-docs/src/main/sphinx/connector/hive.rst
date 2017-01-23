@@ -133,10 +133,7 @@ Property Name                                      Description                  
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
 
-``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``false``
-                                                   DataNode process serving the split data.  This is useful for
-                                                   installations where Presto is collocated with every
-                                                   DataNode.
+``hive.force-local-scheduling``                    See :ref:`tuning section<force-local-scheduling>`            ``false``
 
 ``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
                                                    format or the default Presto format?
@@ -415,6 +412,305 @@ for the table. The referenced data directory is not deleted::
 Drop a schema::
 
     DROP SCHEMA hive.web
+
+
+.. _tuning-perf-hive:
+
+Tuning
+------
+
+The following configuration properties may have an impact on connector performance:
+
+``hive.assume-canonical-partition-keys``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enable optimized metastore partition fetching for non-string partition keys. Setting this
+    property allows to filter non-string partition keys while reading them from Hive, based on
+    the assumption that they are stored in canonical (java) format. This is disabled by default
+    as Hive allows to use non-canonical format as well (eg. boolean value ``false`` may be
+    represented as ``0``, ``false``, ``False`` and more). Used correctly, this property may
+    drastically improve read time by reducing number of partition loaded from Hive. Setting
+    this property for non-canonical data format may cause erratic behavior.
+
+
+``hive.domain-compaction-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum Value:** ``1``
+    * **Default value:** ``100``
+
+    Maximum number of ranges/values allowed while reading Hive data without compacting it.
+    This property makes sure that the ranges for a column are not always compacted into a
+    single range. Being compacted to a single range will prevent the reader from taking advantage
+    of scenarios where some rows can be skipped. A higher value will cause more data fragmentation
+    but allow the use of the row skipping feature when reading ORC data. Increasing this value may thus
+    improve the performance of ``IN`` and ``OR`` clauses in scenarios making use of row skipping.
+
+
+.. _force-local-scheduling:
+
+``hive.force-local-scheduling``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Force splits to be scheduled on the same node (ignoring normal node selection procedures)
+    as the Hadoop DataNode process serving the split data. This is useful for installations
+    where Presto is co-located with every DataNode and may decrease queries time significantly.
+    The drawback may be that if some data are accessed more often, the utilization of some nodes
+    may be low even if the whole system is heavy loaded.
+    See also :ref:`node-scheduler.network-topology<node-scheduler-properties>` if less
+    strict constrain is preferred - especially if some nodes are overloaded and other are not
+    fully utilized.
+
+
+``hive.max-initial-split-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``hive.max-split-size`` / ``2`` (``32MB``)
+
+    The maximum size of the first :ref:``hive.max-initial-splits``
+    splits created for a query. The logic behind initial splits is described in
+    :ref:``hive.max-initial-splits``. Lower values will increase concurrency for small queries.
+    This property represents the maximum size, as the real size may be lower when the amount
+    of data to read is less than ``hive.max-initial-split-size`` (e.g. at the end of a
+    block on a DataNode).
+
+
+``hive.max-initial-splits``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``200``
+
+    The number of splits that may be initially created for a single query
+    using :ref:``hive.max-initial-split-size`` instead of :ref:``hive.max-split-size``. A higher
+    value will force more splits to have a smaller size (``hive.max-initial-splits`` is
+    expected to be smaller than :ref:``hive.max-split-size``), effectively increasing the
+    definition of what is considered a "small query". The purpose of the smaller split
+    size for the initial splits is to increase concurrency for smaller queries.
+
+
+``hive.max-outstanding-splits``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``1000``
+
+    Limit on the number of splits waiting to be served by a split source.
+    This controls how many buffered splits are allowed before the scheduler
+    tries to pause itself.
+
+``hive.max-partitions-per-writers``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``100``
+
+    Maximum number of partitions per writer. In scenarios where the user
+    tries to write hundreds of partitions in one query, every machine will
+    have a writer open for each partition. This is will result in excessive
+    memory usage especially for Hive writers like ORC and Parquet. This
+    property can be used to limit this memory usage by putting a threshold on
+    the number of allowed writers. Thus it may allow to proactively avoid
+    out-of-memory problems. You could have a higher value for this property,
+    but in this case it may be necessary to have the query concurrency
+    reduced.
+
+
+``hive.max-split-iterator-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``1000``
+
+    The number of threads that may be used to iterate through splits when loading
+    them to the worker nodes. A higher value may increase parallelism, but
+    increased concurrency may cause too much time to be spent on context switching.
+
+
+``hive.max-split-size``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``64MB``
+
+    The maximum size of splits created after the initial splits. The logic
+    for initial splits is described in :ref:``hive.max-initial-splits``.
+    A higher value will reduce parallelism. This may be desirable for very
+    large queries and a stable cluster because it allows for more efficient
+    processing of local data without the context switching, synchronization
+    and data collection that result from parallelization. The optimal value
+    should be aligned with the average query size in the system.
+
+
+``hive.metastore.partition-batch-size.max``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``100``
+
+    This together with :ref:``hive.metastore.partition-batch-size.min``
+    defines the range of partition sizes read from Hive. The first partition
+    is always of size :ref:``hive.metastore.partition-batch-size.min``
+    and each following partition is two times bigger than the previous up to
+    a maximum of ``hive.mestastore.partition-batch-size.max``.
+    This algorithm allows for live adjustment of partition size according
+    to the processing requirements. If the queries in the system will differ
+    significantly from each other in size, then this range should be
+    extended to better adjust to processing requirements. If the queries
+    in the system will mostly be of the same size, then setting both values to
+    the same maximally tuned value may give a slight edge in processing time.
+
+
+``hive.metastore.partition-batch-size.min``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``10``
+
+    See ``hive.metastore.partition-batch-size.max``.
+
+
+``hive.orc.max-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``8MB``
+
+    Serves as the default value for ``orc_max_buffer_size`` session properties defining max size
+    of ORC read operators. Higher value will allow bigger chunks to be processed but will
+    decrease concurrency level.
+
+
+``hive.orc.max-merge-distance``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``1MB``
+
+    Serves as the default value for the ``orc_max_merge_distance`` session property. Two reads
+    from an ORC file may be merged into a single read if the distance between the requested data
+    ranges in the data source is less than or equal to this value.
+
+
+``hive.orc.stream-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``8MB``
+
+    Serves as the default value for the ``orc_max_buffer_size`` session property. It defines the
+    maximum size of ORC read operators. A higher value will allow bigger chunks to be processed,
+    but will decrease concurrency.
+
+
+``hive.orc.use-column-names``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Allows to access ORC columns using names from the file. By default,
+    columns in ORC files are accessed by their ordinal position in the Hive table
+    definition. Setting this property allows to use columns
+    names recorded in the ORC file instead.
+
+
+``hive.parquet.use-column-names``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Allows to access Parquet columns using names from the file. By default,
+    columns in Parquet files are accessed by their ordinal position in the Hive metastore.
+    Setting this property allows access by column name recorded in the Parquet file instead.
+
+
+``hive.s3.max-connections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``500``
+
+    The maximum number of connections to S3 that may be open at a time by the S3 driver.
+    A higher value may increase network utilization when a cluster is used on a
+    high speed network. However, a higher values relies more on S3 servers
+    being well configured for high parallelism.
+
+
+``hive.s3.multipart.min-file-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Minimum value:** ``16MB``
+    * **Default value:** ``16MB``
+
+    The size of a file that may be uploaded to an S3 cluster using the multipart
+    upload feature. Amazon recommends using ``100MB``, but a lower value
+    may increase upload parallelism and decrease the ``data lost``/``data sent``
+    ratio in unstable network conditions.
+
+
+``hive.s3.multipart.min-part-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``String``
+    * **Minimum value:** ``5MB``
+    * **Default value:** ``5MB``
+
+
+    Defines the minimum part size for upload parts. Decreasing
+    the minimum part size causes multipart uploads to be split into a
+    larger number of smaller parts. Setting this value too low has a negative
+    effect on transfer speeds, causing extra latency and network communication for each part.
+
+
+There are also following session properties allowing to control connector behavior on single query basis:
+
+
+``orc_max_buffer_size``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``hive.orc.max-buffer-size`` (``8MB``)
+
+
+  See :ref:`hive.orc.max-buffer-size<tuning-perf-hive>`.
+
+
+``orc_max_merge_distance``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``hive.orc.max-merge-distance`` (``1MB``)
+
+
+    See :ref:`hive.orc.max-merge-distance<tuning-perf-hive>`.
+
+
+``orc_stream_buffer_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``hive.orc.max-buffer-size`` (``8MB``)
+
+
+  See :ref:`hive.orc.max-buffer-size<tuning-perf-hive>`.
+
 
 Hive Connector Limitations
 --------------------------
