@@ -10,6 +10,8 @@ may be used to tune Presto or alter its behavior when required.
     :backlinks: none
     :depth: 1
 
+.. _general-properties:
+
 General Properties
 ------------------
 
@@ -57,6 +59,7 @@ General Properties
     large heap, a smaller value may work. Basically, set this value large
     enough that the JVM does not fail with ``OutOfMemoryError``.
 
+.. _query-properties:
 
 Query Execution Properties
 --------------------------
