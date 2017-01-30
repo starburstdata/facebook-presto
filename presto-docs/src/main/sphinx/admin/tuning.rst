@@ -31,6 +31,15 @@ though if your workload is highly concurrent, you may want to use a lower value 
 ``query.initial-hash-partitions`` is set to the total number of workers in the cluster and ``task.concurrency`` to the
 number of cores.
 
+If your workload consists of queries that have very quick processing time of the splits you might encounter situation
+when the whole cluster is under utilized (very small usage of CPU, network and disks).
+For example, this can happen when your queries are highly selective and most splits can be filtered out just by looking
+into theirs headers (like bloom filters or min/max statistics in ORC files) without reading the actual data.
+In such case you might want to increase values of the following properties:
+
+  * :ref:`node-scheduler.max-pending-splits-per-node-per-stage<node-scheduler-properties>`
+  * :ref:`node-scheduler.max-splits-per-node<node-scheduler-properties>`
+
 If this guide does not suit your needs, You may look for more tuning options on
 :doc:`/admin/properties` page.
 
