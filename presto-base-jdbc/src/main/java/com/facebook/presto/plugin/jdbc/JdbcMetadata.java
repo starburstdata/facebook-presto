@@ -159,6 +159,13 @@ public class JdbcMetadata
     }
 
     @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty());
+        finishCreateTable(session, outputTableHandle, ImmutableList.of());
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(tableMetadata);
