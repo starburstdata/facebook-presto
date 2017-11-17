@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -51,7 +50,9 @@ import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
@@ -73,6 +74,7 @@ public class Driver
     private final Optional<DeleteOperator> deleteOperator;
     private final AtomicReference<TaskSource> newTaskSource = new AtomicReference<>();
     private final Map<Operator, ListenableFuture<?>> revokingOperators = new HashMap<>();
+    private ListenableFuture<?> previouslyReturnedBlockedFuture = NOT_BLOCKED;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
 
@@ -230,6 +232,11 @@ public class Driver
 
         requireNonNull(duration, "duration is null");
 
+        // if the driver is blocked we don't need to continue
+        if (!previouslyReturnedBlockedFuture.isDone()) {
+            return previouslyReturnedBlockedFuture;
+        }
+
         long maxRuntime = duration.roundTo(TimeUnit.NANOSECONDS);
 
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
@@ -240,7 +247,8 @@ public class Driver
                 do {
                     ListenableFuture<?> future = processInternal();
                     if (!future.isDone()) {
-                        return wakeUpOnRevokeRequest(future);
+                        previouslyReturnedBlockedFuture = wakeUpOnRevokeRequest(future);
+                        return previouslyReturnedBlockedFuture;
                     }
                 }
                 while (System.nanoTime() - start < maxRuntime && !isFinishedInternal());
@@ -258,15 +266,23 @@ public class Driver
     {
         checkLockNotHeld("Can not process while holding the driver lock");
 
+        // if the driver is blocked we don't need to continue
+        if (!previouslyReturnedBlockedFuture.isDone()) {
+            return previouslyReturnedBlockedFuture;
+        }
+
         Optional<ListenableFuture<?>> result = tryWithLock(100, TimeUnit.MILLISECONDS, () -> {
             ListenableFuture<?> driverBlockedFuture = processInternal();
-            return wakeUpOnRevokeRequest(driverBlockedFuture);
+            previouslyReturnedBlockedFuture = wakeUpOnRevokeRequest(driverBlockedFuture);
+            return previouslyReturnedBlockedFuture;
         });
         return result.orElse(NOT_BLOCKED);
     }
 
     private ListenableFuture<?> wakeUpOnRevokeRequest(ListenableFuture<?> driverBlockedFuture)
     {
+        verify(previouslyReturnedBlockedFuture.isDone(), "previouslyReturnedBlockedFuture must be done");
+
         if (driverBlockedFuture.isDone()) {
             // driver is not blocked; just return completed future
             return driverBlockedFuture;
@@ -577,7 +593,7 @@ public class Driver
     private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
     {
         SettableFuture<?> result = SettableFuture.create();
-        ExecutorService executor = MoreExecutors.newDirectExecutorService();
+        ExecutorService executor = newDirectExecutorService();
 
         for (ListenableFuture<?> future : futures) {
             future.addListener(() -> result.set(null), executor);
