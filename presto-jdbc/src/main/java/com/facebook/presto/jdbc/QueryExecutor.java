@@ -37,7 +37,7 @@ class QueryExecutor
     private final OkHttpClient httpClient;
     private final JsonCodec<QuerySubmission> querySubmissionCodec;
 
-    private QueryExecutor(JsonCodec<QuerySubmission> querySubmissionCodec, OkHttpClient httpClient)
+    public QueryExecutor(JsonCodec<QuerySubmission> querySubmissionCodec, OkHttpClient httpClient)
     {
         this.querySubmissionCodec = requireNonNull(querySubmissionCodec, "querySubmissionCodec is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");

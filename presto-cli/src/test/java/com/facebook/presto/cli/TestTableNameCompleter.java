@@ -14,7 +14,9 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.client.QuerySubmission;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,6 +31,7 @@ public class TestTableNameCompleter
         ClientSession session = new ClientOptions().toClientSession();
         QueryRunner runner = new QueryRunner(
                 session,
+                JsonCodec.jsonCodec(QuerySubmission.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
