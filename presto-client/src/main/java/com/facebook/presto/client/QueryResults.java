@@ -213,14 +213,14 @@ public class QueryResults
         return updateCount;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public Map<String, String> getAddedPreparedStatements()
     {
         return addedPreparedStatements;
     }
 
-    @NotNull
+    @Nonnull
     @JsonProperty
     public Set<String> getDeallocatedPreparedStatements()
     {
