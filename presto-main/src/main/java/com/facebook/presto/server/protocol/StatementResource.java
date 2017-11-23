@@ -172,7 +172,6 @@ public class StatementResource
         }
     }
 
-
     @GET
     @Path("{queryId}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
