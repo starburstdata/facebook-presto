@@ -550,7 +550,7 @@ public class HivePageSource
                 valueIsNull[i] = mapBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
-            return ((MapType) toType).createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+            return ((MapType) toType).createBlockFromKeyValue(mapBlock.getPositionCount(), Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
         }
     }
 
