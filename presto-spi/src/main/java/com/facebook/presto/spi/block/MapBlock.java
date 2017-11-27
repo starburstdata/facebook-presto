@@ -196,38 +196,38 @@ public class MapBlock
     }
 
     @Override
-    protected Block getRawKeyBlock()
+    public Block getRawKeyBlock()
     {
         return keyBlock;
     }
 
     @Override
-    protected Block getRawValueBlock()
+    public Block getRawValueBlock()
     {
         return valueBlock;
     }
 
     @Override
-    protected int[] getHashTables()
+    public int[] getHashTables()
     {
         return hashTables;
     }
 
     @Override
-    protected int[] getOffsets()
+    public int[] getOffsets()
     {
         return offsets;
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return startOffset;
     }
 
     @Override
     @Nullable
-    protected boolean[] getMapIsNull()
+    public boolean[] getMapIsNull()
     {
         return mapIsNull;
     }
