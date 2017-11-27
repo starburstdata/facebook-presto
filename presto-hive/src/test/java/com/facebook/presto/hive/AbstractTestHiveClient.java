@@ -3150,6 +3150,10 @@ public abstract class AbstractTestHiveClient
 
     protected static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
     {
+        if (pageSource instanceof TimestampFixingHiveConnectorPageSource) {
+            pageSource = ((TimestampFixingHiveConnectorPageSource) pageSource).getInternalPageSource();
+        }
+
         if (pageSource instanceof RecordPageSource) {
             RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
             hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
