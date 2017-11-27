@@ -81,7 +81,7 @@ public final class TestingOrcPredicate
         if (TIMESTAMP.equals(type)) {
             return new LongOrcPredicate(
                     expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillis())
                             .collect(toList()),
                     format == DWRF);
         }
