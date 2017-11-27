@@ -105,37 +105,37 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected Block getRawKeyBlock()
+    public Block getRawKeyBlock()
     {
         return keyBlockBuilder;
     }
 
     @Override
-    protected Block getRawValueBlock()
+    public Block getRawValueBlock()
     {
         return valueBlockBuilder;
     }
 
     @Override
-    protected int[] getHashTables()
+    public int[] getHashTables()
     {
         return hashTables;
     }
 
     @Override
-    protected int[] getOffsets()
+    public int[] getOffsets()
     {
         return offsets;
     }
 
     @Override
-    protected int getOffsetBase()
+    public int getOffsetBase()
     {
         return 0;
     }
 
     @Override
-    protected boolean[] getMapIsNull()
+    public boolean[] getMapIsNull()
     {
         return mapIsNull;
     }
@@ -410,7 +410,7 @@ public class MapBlockBuilder
                 newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));
     }
 
-    private static int[] newNegativeOneFilledArray(int size)
+    public static int[] newNegativeOneFilledArray(int size)
     {
         int[] hashTable = new int[size];
         Arrays.fill(hashTable, -1);
@@ -420,7 +420,7 @@ public class MapBlockBuilder
     /**
      * This method assumes that {@code keyBlock} has no duplicated entries (in the specified range)
      */
-    static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
+    public static void buildHashTable(Block keyBlock, int keyOffset, int keyCount, MethodHandle keyBlockHashCode, int[] outputHashTable, int hashTableOffset, int hashTableSize)
     {
         for (int i = 0; i < keyCount; i++) {
             int hash = getHashPosition(keyBlock, keyOffset + i, keyBlockHashCode, hashTableSize);
