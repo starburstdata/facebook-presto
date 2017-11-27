@@ -76,10 +76,14 @@ public class TimestampRewriter
 
     private Block modifyTimestampsInBlockLazy(Block block, Type type, LongUnaryOperator modification)
     {
+        // TODO after rebase, this code is probably unreachable, LazyBlock should not appear when *writing* (is this code active during reading as well?)
         if (!hasTimestampParameter(type)) {
             return block;
         }
-        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(modifyTimestampsInBlock(block, type, modification)));
+        return new LazyBlock(block.getPositionCount(), lazyBlock -> {
+            Block targetBlock = block.getLoadedBlock();
+            lazyBlock.setBlock(modifyTimestampsInBlock(targetBlock, type, modification));
+        });
     }
 
     private Block modifyTimestampsInBlock(Block block, Type type, LongUnaryOperator modification)
