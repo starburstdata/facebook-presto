@@ -420,7 +420,7 @@ public final class SystemSessionProperties
                         LEGACY_TIMESTAMP,
                         "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
                         featuresConfig.isLegacyTimestamp(),
-                        true),
+                        false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
