@@ -164,10 +164,11 @@ public class MapStreamReader
             currentLength = lastLength;
         }
 
+        Block result = mapType.createBlockFromKeyValue(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
         readOffset = 0;
         nextBatchSize = 0;
 
-        return mapType.createBlockFromKeyValue(Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
+        return result;
     }
 
     private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
