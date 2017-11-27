@@ -16,12 +16,17 @@ package com.facebook.presto.type;
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -38,7 +43,12 @@ import static com.facebook.presto.testing.TestingSqlTime.sqlTimeOf;
 import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public abstract class TestTimeBase
 {
@@ -81,6 +91,22 @@ public abstract class TestTimeBase
         functionAssertions.assertFunctionString(projection, expectedType, expected);
     }
 
+    protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String messagePattern)
+    {
+        try {
+            functionAssertions.evaluateInvalid(projection);
+            fail("SemanticException was expected");
+        }
+        catch (SemanticException e) {
+            if (expectedErrorCode != e.getCode()) {
+                fail(format("Expected error code %s but got %s", expectedErrorCode, e.getCode()), e);
+            }
+            if (!nullToEmpty(e.getMessage()).matches(messagePattern)) {
+                fail(format("Expected exception message '%s' to match '%s'", e.getMessage(), messagePattern), e);
+            }
+        }
+    }
+
     @Test
     public void testLiteral()
             throws Exception
@@ -88,6 +114,7 @@ public abstract class TestTimeBase
         assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
         assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
         assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, DATE_TIME_ZONE, TIME_ZONE_KEY, connectorSession()));
+        assertInvalidFunction("TIME 'text'", SemanticErrorCode.INVALID_LITERAL, "'text' is not a valid time literal x");
     }
 
     @Test

@@ -292,7 +292,7 @@ public final class FunctionAssertions
         executeProjectionWithAll(expression, expectedType, session, compiler);
     }
 
-    private void evaluateInvalid(String projection)
+    public void evaluateInvalid(String projection)
     {
         tryEvaluate(projection, null);
     }
