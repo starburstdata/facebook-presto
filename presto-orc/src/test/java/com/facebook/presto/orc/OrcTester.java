@@ -717,7 +717,7 @@ public class OrcTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillisUtc();
+                long millis = ((SqlTimestamp) value).getMillis();
                 type.writeLong(blockBuilder, millis);
             }
             else {
@@ -1108,8 +1108,10 @@ public class OrcTester
             return date;
         }
         else if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
-            return new Timestamp(millisUtc);
+            long millis = ((SqlTimestamp) value).getMillis();
+            // TODO this isn't correct, but the old writer is probably incorrect
+            // TODO this should be: Timestamp.valueOf(Instant.ofEpochMilli(millis).atZone(UTC).toLocalDateTime())
+            return new Timestamp(millis);
         }
         else if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());

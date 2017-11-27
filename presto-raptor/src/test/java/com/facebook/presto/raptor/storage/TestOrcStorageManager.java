@@ -489,8 +489,8 @@ public class TestOrcStorageManager
     {
         long minDate = sqlDate(2001, 8, 22).getDays();
         long maxDate = sqlDate(2005, 4, 22).getDays();
-        long maxTimestamp = sqlTimestamp(2002, 4, 13, 6, 7, 8).getMillisUtc();
-        long minTimestamp = sqlTimestamp(2001, 3, 15, 9, 10, 11).getMillisUtc();
+        long maxTimestamp = sqlTimestamp(2002, 4, 13, 6, 7, 8).getMillis();
+        long minTimestamp = sqlTimestamp(2001, 3, 15, 9, 10, 11).getMillis();
 
         List<ColumnStats> stats = columnStats(types(DATE, TIMESTAMP),
                 row(minDate, maxTimestamp),
