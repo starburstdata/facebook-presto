@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestodb.tempto.AfterTestWithContext;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
-import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.TestGroups.ROLES;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
@@ -78,7 +78,7 @@ public class TestRoles
                 .collect(toImmutableSet());
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateRole()
     {
         onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
@@ -86,7 +86,7 @@ public class TestRoles
         assertThat(listRoles()).contains(ROLE1, ROLE2);
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropRole()
     {
         onHive().executeQuery(format("CREATE ROLE %s", ROLE1));
@@ -95,7 +95,7 @@ public class TestRoles
         assertThat(listRoles()).doesNotContain(ROLE1);
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testListRoles()
     {
         onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
@@ -105,7 +105,7 @@ public class TestRoles
         assertThat(actual.rows()).containsOnly(expected.rows().toArray(new List[] {}));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateDuplicateRole()
     {
         onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
@@ -113,14 +113,14 @@ public class TestRoles
                 .failsWithMessage(format("Role '%s' already exists", ROLE1));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropNonExistentRole()
     {
         QueryAssert.assertThat(() -> onPresto().executeQuery(format("DROP ROLE %s", ROLE3)))
                 .failsWithMessage(format("Role '%s' does not exist", ROLE3));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateDropRoleAccessControl()
     {
         // Only users that are granted with "admin" role can create, drop and list roles
@@ -133,7 +133,7 @@ public class TestRoles
                 .failsWithMessage("Cannot select from table information_schema.roles");
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testPublicRoleIsGrantedToEveryone()
     {
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
@@ -142,14 +142,14 @@ public class TestRoles
                 .contains(row("bob", "USER", "public", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminRoleIsGrantedToHdfs()
     {
         QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .contains(row("hdfs", "USER", "admin", "YES"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleToUser()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -160,7 +160,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleToRole()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -174,7 +174,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleWithAdminOption()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -188,7 +188,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "YES"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleMultipleTimes()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -208,7 +208,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "YES"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeRoleFromUser()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -224,7 +224,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeRoleFromRole()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -244,7 +244,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropGrantedRole()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -260,7 +260,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeTransitiveRoleFromUser()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -279,7 +279,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeTransitiveRoleFromRole()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -302,7 +302,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropTransitiveRole()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -325,7 +325,7 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeAdminOption()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -348,7 +348,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeMultipleTimes()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -382,7 +382,7 @@ public class TestRoles
                         row("alice", "USER", "public", "NO"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRevokeRoleAccessControl()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -435,7 +435,7 @@ public class TestRoles
                 .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetRole()
     {
         onPresto().executeQuery("CREATE ROLE role1");
@@ -480,7 +480,7 @@ public class TestRoles
                         row("role3"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetAdminRole()
     {
         onPresto().executeQuery("SET ROLE NONE");
@@ -494,7 +494,7 @@ public class TestRoles
                         row("admin"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowRoles()
     {
         QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLES"))
@@ -518,7 +518,7 @@ public class TestRoles
                         row("role1"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowCurrentRoles()
     {
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW CURRENT ROLES"))
@@ -540,7 +540,7 @@ public class TestRoles
                         row("role2"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowRoleGrants()
     {
         QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLE GRANTS"))
@@ -562,6 +562,119 @@ public class TestRoles
                 .containsOnly(
                         row("public"),
                         row("role1"));
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testSetRoleCreateDropSchema()
+    {
+        assertAdminExecute("CREATE SCHEMA hive.test_admin_schema");
+        onPresto().executeQuery("DROP SCHEMA hive.test_admin_schema");
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanDropAnyTable()
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("DROP TABLE hive.default.test_table");
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanRenameAnyTable()
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("ALTER TABLE hive.default.test_table RENAME TO hive.default.test_table_1");
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table_1");
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanAddColumnToAnyTable()
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("ALTER TABLE hive.default.test_table ADD COLUMN bar DATE");
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAdminCanRenameColumnInAnyTable()
+    {
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        assertAdminExecute("ALTER TABLE hive.default.test_table RENAME COLUMN foo TO bar");
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testSetRoleTablePermissions()
+    {
+        onPresto().executeQuery("CREATE ROLE role1");
+        onPresto().executeQuery("CREATE ROLE role2");
+
+        onPresto().executeQuery("GRANT role1 TO USER bob");
+        onPresto().executeQuery("GRANT role2 TO USER bob");
+
+        onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
+        onPrestoAlice().executeQuery("GRANT SELECT ON hive.default.test_table TO ROLE role1");
+        onPrestoAlice().executeQuery("GRANT INSERT ON hive.default.test_table TO ROLE role2");
+
+        String select = "SELECT * FROM hive.default.test_table";
+        String insert = "INSERT INTO hive.default.test_table (foo) VALUES (1)";
+
+        assertAdminExecute(select);
+        assertAdminExecute(insert);
+
+        onPrestoBob().executeQuery(select);
+        onPrestoBob().executeQuery(insert);
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role1", "ROLE", "hive", "default", "test_table", "SELECT", "NO", null),
+                        row("alice", "USER", "role2", "ROLE", "hive", "default", "test_table", "INSERT", "NO", null)));
+
+        onPrestoBob().executeQuery("SET ROLE ALL");
+        onPrestoBob().executeQuery(select);
+        onPrestoBob().executeQuery(insert);
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role1", "ROLE", "hive", "default", "test_table", "SELECT", "NO", null),
+                        row("alice", "USER", "role2", "ROLE", "hive", "default", "test_table", "INSERT", "NO", null)));
+
+        onPrestoBob().executeQuery("SET ROLE NONE");
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(select))
+                .failsWithMessage("Access Denied");
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(insert))
+                .failsWithMessage("Access Denied");
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of());
+
+        onPrestoBob().executeQuery("SET ROLE role1");
+        onPrestoBob().executeQuery(select);
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(insert))
+                .failsWithMessage("Access Denied");
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role1", "ROLE", "hive", "default", "test_table", "SELECT", "NO", null)));
+
+        onPrestoBob().executeQuery("SET ROLE role2");
+        QueryAssert.assertThat(() -> onPrestoBob().executeQuery(select))
+                .failsWithMessage("Access Denied");
+        onPrestoBob().executeQuery(insert);
+        QueryAssert.assertThat(onPrestoBob().executeQuery("SHOW GRANTS ON hive.default.test_table"))
+                .containsOnly(ImmutableList.of(
+                        row("alice", "USER", "role2", "ROLE", "hive", "default", "test_table", "INSERT", "NO", null)));
+
+        onPrestoAlice().executeQuery("DROP TABLE hive.default.test_table");
+    }
+
+    private static void assertAdminExecute(String query)
+    {
+        onPresto().executeQuery("SET ROLE NONE");
+        QueryAssert.assertThat(() -> onPresto().executeQuery(query))
+                .failsWithMessage("Access Denied");
+
+        onPresto().executeQuery("SET ROLE ALL");
+        QueryAssert.assertThat(() -> onPresto().executeQuery(query))
+                .failsWithMessage("Access Denied");
+
+        onPresto().executeQuery("SET ROLE admin");
+        onPresto().executeQuery(query);
     }
 
     private static QueryExecutor onPrestoAlice()
