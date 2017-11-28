@@ -20,12 +20,9 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.SortingColumn.Order;
-<<<<<<< HEAD
-import com.facebook.presto.spi.security.PrincipalType;
-=======
 import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.RoleGrant;
->>>>>>> e6dec7c2ae... fixup! Implement Grant/Revoke/ListApplicableRoles in Hive
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -101,7 +98,7 @@ public class TestRecordingHiveMetastore
                     OptionalLong.of(1235),
                     OptionalLong.of(1),
                     OptionalLong.of(8))));
-    private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true);
+    private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true, new PrestoPrincipal(PrincipalType.USER, "grantor"));
     private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, "grantee"), "role", true);
 
     @Test
