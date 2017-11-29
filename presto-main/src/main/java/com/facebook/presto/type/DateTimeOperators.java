@@ -64,14 +64,20 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIME)
     public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        if (session.isLegacyTimestamp()) {
+            return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        }
+        return modulo24Hour(left + right);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME)
     public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIME) long right)
     {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        if (session.isLegacyTimestamp()) {
+            return modulo24Hour(getChronology(session.getTimeZoneKey()), left + right);
+        }
+        return modulo24Hour(right + left);
     }
 
     @ScalarOperator(ADD)
