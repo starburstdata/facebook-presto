@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
+import com.facebook.presto.util.ContinuousWorkUtils;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -116,6 +117,22 @@ public class ExchangeClient
         this.systemMemoryContext = systemMemoryContext;
         this.maxBufferBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
+    }
+
+    public ContinuousWork<SerializedPage> pages()
+    {
+        return ContinuousWork.create(() -> {
+            ListenableFuture<?> blocked = isBlocked();
+            if (!blocked.isDone()) {
+                return ContinuousWorkUtils.WorkState.blocked(blocked);
+            }
+
+            if (isFinished()) {
+                return ContinuousWorkUtils.WorkState.finished();
+            }
+
+            return ContinuousWorkUtils.WorkState.ofResult(pollPage());
+        });
     }
 
     public ExchangeClientStatus getStatus()
