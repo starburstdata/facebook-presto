@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -97,7 +98,9 @@ public class ExchangeNode
 
         checkArgument(scope != REMOTE || type == Type.REPARTITION || !partitioningScheme.isReplicateNullsAndAny(), "Only REPARTITION can replicate remotely");
 
-        checkArgument(type == Type.GATHER || !orderingScheme.isPresent(), "ordering scheme can be set only for GATHERING");
+        PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
+        checkArgument(!orderingScheme.isPresent() || scope != REMOTE || partitioningHandle.equals(SINGLE_DISTRIBUTION),
+                "remote merging exchange requires single distribution");
         orderingScheme.ifPresent(ordering ->
                 sources.forEach(source ->
                         checkArgument(source.getOutputSymbols().containsAll(ordering.getOrderBy()), "Source does not supply all required ordering symbols")));

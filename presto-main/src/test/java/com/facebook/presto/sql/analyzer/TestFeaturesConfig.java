@@ -78,6 +78,7 @@ public class TestFeaturesConfig
                 .setForceSingleNodeOutput(true)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(25, KILOBYTE))
+                .setDistributedSortEnabled(false)
                 .setFilterAndProjectMinOutputPageRowCount(256));
     }
 
@@ -124,6 +125,7 @@ public class TestFeaturesConfig
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("experimental.filter-and-project-min-output-page-size", "1MB")
                 .put("experimental.filter-and-project-min-output-page-row-count", "2048")
+                .put("experimental.distributed-sort", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -165,6 +167,7 @@ public class TestFeaturesConfig
                 .setForceSingleNodeOutput(false)
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
+                .setDistributedSortEnabled(true)
                 .setFilterAndProjectMinOutputPageRowCount(2048);
 
         assertFullMapping(properties, expected);
