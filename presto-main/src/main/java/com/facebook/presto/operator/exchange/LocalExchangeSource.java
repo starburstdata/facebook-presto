@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.operator.ContinuousWork;
+import com.facebook.presto.operator.ContinuousWorkUtils.WorkState;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -102,6 +104,22 @@ public class LocalExchangeSource
 
         // notify readers outside of lock since this may result in a callback
         notEmptyFuture.set(null);
+    }
+
+    public ContinuousWork<Page> pages()
+    {
+        return ContinuousWork.create(() -> {
+            ListenableFuture<?> blocked = waitForReading();
+            if (!blocked.isDone()) {
+                return WorkState.blocked(blocked);
+            }
+
+            if (isFinished()) {
+                return WorkState.finished();
+            }
+
+            return WorkState.ofResult(removePage());
+        });
     }
 
     public Page removePage()
