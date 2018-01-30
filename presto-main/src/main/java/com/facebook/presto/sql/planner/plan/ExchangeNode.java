@@ -31,6 +31,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -101,6 +102,8 @@ public class ExchangeNode
         PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
         checkArgument(!orderingScheme.isPresent() || scope != REMOTE || partitioningHandle.equals(SINGLE_DISTRIBUTION),
                 "remote merging exchange requires single distribution");
+        checkArgument(!orderingScheme.isPresent() || scope != LOCAL || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION),
+                "local merging exchange requires passthrough distribution");
         orderingScheme.ifPresent(ordering ->
                 sources.forEach(source ->
                         checkArgument(source.getOutputSymbols().containsAll(ordering.getOrderBy()), "Source does not supply all required ordering symbols")));
@@ -187,6 +190,18 @@ public class ExchangeNode
                 Type.GATHER,
                 scope,
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
+                ImmutableList.of(child),
+                ImmutableList.of(child.getOutputSymbols()),
+                Optional.of(orderingScheme));
+    }
+
+    public static ExchangeNode passthroughExchange(PlanNodeId id, Scope scope, PlanNode child, OrderingScheme orderingScheme)
+    {
+        return new ExchangeNode(
+                id,
+                Type.GATHER,
+                scope,
+                new PartitioningScheme(Partitioning.create(FIXED_PASSTHROUGH_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()),
                 Optional.of(orderingScheme));
