@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -36,6 +37,13 @@ public class MoreLists
         requireNonNull(predicate, "predicate is null");
         return elements.stream()
                 .filter(predicate)
+                .collect(toImmutableList());
+    }
+
+    public static <T, R> List<R> mappedCopy(List<T> elements, Function<T, R> mapper)
+    {
+        return elements.stream()
+                .map(mapper)
                 .collect(toImmutableList());
     }
 
