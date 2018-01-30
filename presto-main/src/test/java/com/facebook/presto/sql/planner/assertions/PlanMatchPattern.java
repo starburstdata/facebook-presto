@@ -245,7 +245,7 @@ public final class PlanMatchPattern
     {
         return node(SortNode.class, source);
     }
-    
+
     public static PlanMatchPattern sort(ImmutableMap<String, SortOrder> orderingScheme, PlanMatchPattern source)
     {
         return node(SortNode.class, source)
