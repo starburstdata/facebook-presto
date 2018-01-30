@@ -480,7 +480,14 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitSort(SortNode node, List<StreamProperties> inputProperties)
         {
-            return StreamProperties.ordered();
+            StreamProperties sourceProperties = Iterables.getOnlyElement(inputProperties);
+            if (sourceProperties.isSingleStream()) {
+                // stream is only sorted if sort operator is executed without parallelism
+                return StreamProperties.ordered();
+            }
+            else {
+                return sourceProperties;
+            }
         }
 
         @Override
