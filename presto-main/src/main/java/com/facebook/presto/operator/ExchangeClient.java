@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.ContinuousWorkUtils.WorkState;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -169,6 +170,26 @@ public class ExchangeClient
     {
         noMoreLocations = true;
         scheduleRequestIfNecessary();
+    }
+
+    public ContinuousWork<SerializedPage> pages()
+    {
+        return ContinuousWork.create(() -> {
+            ListenableFuture<?> blocked = isBlocked();
+            if (!blocked.isDone()) {
+                return WorkState.blocked(blocked);
+            }
+
+            if (isFinished()) {
+                return WorkState.finished();
+            }
+
+            SerializedPage page = pollPage();
+            if (page == null) {
+                return WorkState.yield();
+            }
+            return WorkState.ofResult(page);
+        });
     }
 
     @Nullable
