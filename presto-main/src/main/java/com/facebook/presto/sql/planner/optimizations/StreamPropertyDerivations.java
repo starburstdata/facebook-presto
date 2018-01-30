@@ -273,11 +273,19 @@ final class StreamPropertyDerivations
         public StreamProperties visitExchange(ExchangeNode node, List<StreamProperties> inputProperties)
         {
             if (node.getScope() == REMOTE) {
+                if (node.getOrderingScheme().isPresent()) {
+                    return StreamProperties.ordered();
+                }
+                // TODO: correctly determine if stream is parallelised
+                // based on session properties
                 return StreamProperties.fixedStreams();
             }
 
             switch (node.getType()) {
                 case GATHER:
+                    if (node.getOrderingScheme().isPresent()) {
+                        return StreamProperties.ordered();
+                    }
                     return StreamProperties.singleStream();
                 case REPARTITION:
                     if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
@@ -474,7 +482,14 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitSort(SortNode node, List<StreamProperties> inputProperties)
         {
-            return StreamProperties.ordered();
+            StreamProperties sourceProperties = Iterables.getOnlyElement(inputProperties);
+            if (sourceProperties.isSingleStream()) {
+                // stream is only sorted if sort operator is executed without parallelism
+                return StreamProperties.ordered();
+            }
+            else {
+                return sourceProperties;
+            }
         }
 
         @Override

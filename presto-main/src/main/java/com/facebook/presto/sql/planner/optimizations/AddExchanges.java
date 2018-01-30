@@ -22,6 +22,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -29,6 +30,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -97,7 +99,9 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isColocatedJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isRedistributeSort;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
@@ -116,8 +120,10 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.mergingExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -464,24 +470,47 @@ public class AddExchanges
         {
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.undistributed()));
 
-            if (!child.getProperties().isSingleNode()) {
-                child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
-                        child.getProperties());
-            }
-            else {
+            if (child.getProperties().isSingleNode()) {
                 // current plan so far is single node, so local properties are effectively global properties
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
                 List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-                for (Symbol symbol : node.getOrderBy()) {
-                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+                for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
+                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderingScheme().getOrderings().get(symbol)));
                 }
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
                         .noneMatch(Optional::isPresent)) {
                     return child;
                 }
+            }
+
+            if (isDistributedSortEnabled(session)) {
+                List<Symbol> orderBy = node.getOrderingScheme().getOrderBy();
+                Map<Symbol, SortOrder> orderings = node.getOrderingScheme().getOrderings();
+
+                PlanNode source = child.getNode();
+                if (isRedistributeSort(session)) {
+                    source = roundRobinExchange(idAllocator.getNextId(), REMOTE, source);
+                }
+
+                OrderingScheme orderingScheme = new OrderingScheme(orderBy, orderings);
+                return withDerivedProperties(
+                        mergingExchange(
+                                idAllocator.getNextId(),
+                                REMOTE,
+                                new SortNode(
+                                        idAllocator.getNextId(),
+                                        source,
+                                        orderingScheme),
+                                orderingScheme),
+                        child.getProperties());
+            }
+
+            if (!child.getProperties().isSingleNode()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
             }
 
             return rebaseAndDeriveProperties(node, child);
@@ -1138,7 +1167,8 @@ public class AddExchanges
                         REMOTE,
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         partitionedChildren,
-                        partitionedOutputLayouts);
+                        partitionedOutputLayouts,
+                        Optional.empty());
             }
             else if (!unpartitionedChildren.isEmpty()) {
                 if (!partitionedChildren.isEmpty()) {
@@ -1155,7 +1185,8 @@ public class AddExchanges
                             REMOTE,
                             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
                             partitionedChildren,
-                            partitionedOutputLayouts);
+                            partitionedOutputLayouts,
+                            Optional.empty());
 
                     unpartitionedChildren.add(result);
                     unpartitionedOutputLayouts.add(result.getOutputSymbols());
@@ -1208,7 +1239,8 @@ public class AddExchanges
                                 REMOTE,
                                 new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                                 partitionedChildren,
-                                partitionedOutputLayouts));
+                                partitionedOutputLayouts,
+                                Optional.empty()));
             }
         }
 

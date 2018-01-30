@@ -246,9 +246,15 @@ public final class PlanMatchPattern
         return node(SortNode.class, source);
     }
 
-    public static PlanMatchPattern topN(long count, List<String> orderBy, PlanMatchPattern source)
+    public static PlanMatchPattern sort(ImmutableMap<String, SortOrder> orderingScheme, PlanMatchPattern source)
     {
-        return node(TopNNode.class, source).with(new TopNMatcher(count, toSymbolAliases(orderBy)));
+        return node(SortNode.class, source)
+                .with(new SortMatcher(orderingScheme));
+    }
+
+    public static PlanMatchPattern topN(long count, ImmutableMap<String, SortOrder> orderingScheme, PlanMatchPattern source)
+    {
+        return node(TopNNode.class, source).with(new TopNMatcher(count, orderingScheme));
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)
@@ -324,8 +330,13 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
     {
+        return exchange(scope, type, Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, Optional<ImmutableMap<String, SortOrder>> orderingScheme, PlanMatchPattern... sources)
+    {
         return node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type));
+                .with(new ExchangeMatcher(scope, type, orderingScheme));
     }
 
     public static PlanMatchPattern union(PlanMatchPattern... sources)

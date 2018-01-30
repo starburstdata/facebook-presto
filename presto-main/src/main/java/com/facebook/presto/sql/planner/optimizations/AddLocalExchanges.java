@@ -14,12 +14,15 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.OrderingScheme;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -80,6 +83,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.passthroughExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -168,6 +172,23 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
+            if (SystemSessionProperties.isDistributedSortEnabled(session)) {
+                PlanWithProperties sortPlan = planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
+                List<Symbol> orderBy = node.getOrderingScheme().getOrderBy();
+                Map<Symbol, SortOrder> orderings = node.getOrderingScheme().getOrderings();
+
+                if (!sortPlan.getProperties().isSingleStream()) {
+                    return deriveProperties(
+                            passthroughExchange(
+                                    idAllocator.getNextId(),
+                                    LOCAL,
+                                    sortPlan.getNode(),
+                                    new OrderingScheme(orderBy, orderings)),
+                            sortPlan.getProperties());
+                }
+
+                return sortPlan;
+            }
             // sort requires that all data be in one stream
             // this node changes the input organization completely, so we do not pass through parent preferences
             return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
@@ -377,6 +398,12 @@ public class AddLocalExchanges
         {
             checkArgument(node.getScope() != LOCAL, "AddLocalExchanges can not process a plan containing a local exchange");
             // this node changes the input organization completely, so we do not pass through parent preferences
+            if (node.getOrderingScheme().isPresent()) {
+                return planAndEnforceChildren(
+                        node,
+                        any().withOrderSensitivity(),
+                        any().withOrderSensitivity());
+            }
             return planAndEnforceChildren(node, any(), defaultParallelism(session));
         }
 
@@ -408,7 +435,8 @@ public class AddLocalExchanges
                         LOCAL,
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         sources,
-                        inputLayouts);
+                        inputLayouts,
+                        Optional.empty());
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
@@ -423,7 +451,8 @@ public class AddLocalExchanges
                                 node.getOutputSymbols(),
                                 Optional.empty()),
                         sources,
-                        inputLayouts);
+                        inputLayouts,
+                        Optional.empty());
                 return deriveProperties(exchangeNode, inputProperties);
             }
 
@@ -434,7 +463,8 @@ public class AddLocalExchanges
                     LOCAL,
                     new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                     sources,
-                    inputLayouts);
+                    inputLayouts,
+                    Optional.empty());
             ExchangeNode exchangeNode = result;
 
             return deriveProperties(exchangeNode, inputProperties);

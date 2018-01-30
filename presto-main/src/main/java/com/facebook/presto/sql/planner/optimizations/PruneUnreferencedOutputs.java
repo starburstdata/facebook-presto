@@ -128,6 +128,10 @@ public class PruneUnreferencedOutputs
             node.getPartitioningScheme().getPartitioning().getColumns().stream()
                     .forEach(expectedOutputSymbols::add);
 
+            if (node.getOrderingScheme().isPresent()) {
+                expectedOutputSymbols.addAll(node.getOrderingScheme().get().getOrderBy());
+            }
+
             List<List<Symbol>> inputsBySource = new ArrayList<>(node.getInputs().size());
             for (int i = 0; i < node.getInputs().size(); i++) {
                 inputsBySource.add(new ArrayList<>());
@@ -168,7 +172,8 @@ public class PruneUnreferencedOutputs
                     node.getScope(),
                     partitioningScheme,
                     rewrittenSources.build(),
-                    inputsBySource);
+                    inputsBySource,
+                    node.getOrderingScheme());
         }
 
         @Override
@@ -542,11 +547,11 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
-                    .addAll(node.getOrderBy());
+                    .addAll(node.getOrderingScheme().getOrderBy());
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderBy(), node.getOrderings(), node.getStep());
+            return new TopNNode(node.getId(), source, node.getCount(), node.getOrderingScheme(), node.getStep());
         }
 
         @Override
@@ -590,11 +595,11 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitSort(SortNode node, RewriteContext<Set<Symbol>> context)
         {
-            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderBy()));
+            Set<Symbol> expectedInputs = ImmutableSet.copyOf(concat(context.get(), node.getOrderingScheme().getOrderBy()));
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
 
-            return new SortNode(node.getId(), source, node.getOrderBy(), node.getOrderings());
+            return new SortNode(node.getId(), source, node.getOrderingScheme());
         }
 
         @Override
