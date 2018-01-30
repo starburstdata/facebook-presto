@@ -1009,7 +1009,7 @@ public class PlanPrinter
         @Override
         public Void visitTopN(TopNNode node, Integer indent)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
+            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrderings().get(input));
 
             print(indent, "- TopN[%s by (%s)] => [%s]", node.getCount(), Joiner.on(", ").join(keys), formatOutputs(node.getOutputSymbols()));
             printPlanNodesStats(indent + 2, node);

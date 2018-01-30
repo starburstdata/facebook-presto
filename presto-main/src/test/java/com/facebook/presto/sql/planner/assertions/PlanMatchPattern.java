@@ -246,9 +246,9 @@ public final class PlanMatchPattern
         return node(SortNode.class, source);
     }
 
-    public static PlanMatchPattern topN(long count, List<String> orderBy, PlanMatchPattern source)
+    public static PlanMatchPattern topN(long count, ImmutableMap<String, SortOrder> orderingScheme, PlanMatchPattern source)
     {
-        return node(TopNNode.class, source).with(new TopNMatcher(count, toSymbolAliases(orderBy)));
+        return node(TopNNode.class, source).with(new TopNMatcher(count, orderingScheme));
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)

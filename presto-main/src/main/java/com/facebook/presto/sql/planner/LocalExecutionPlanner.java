@@ -901,13 +901,13 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Symbol> orderBySymbols = node.getOrderBy();
+            List<Symbol> orderBySymbols = node.getOrderingScheme().getOrderBy();
 
             List<Integer> sortChannels = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
             for (Symbol symbol : orderBySymbols) {
                 sortChannels.add(source.getLayout().get(symbol));
-                sortOrders.add(node.getOrderings().get(symbol));
+                sortOrders.add(node.getOrderingScheme().getOrderings().get(symbol));
             }
 
             OperatorFactory operator = new TopNOperatorFactory(

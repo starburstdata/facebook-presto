@@ -149,8 +149,9 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 count,
-                orderBy,
-                Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST)),
+                new OrderingScheme(
+                        orderBy,
+                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
     }
 
