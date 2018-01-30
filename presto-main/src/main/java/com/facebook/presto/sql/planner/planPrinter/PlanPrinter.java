@@ -1020,7 +1020,7 @@ public class PlanPrinter
         @Override
         public Void visitSort(SortNode node, Integer indent)
         {
-            Iterable<String> keys = Iterables.transform(node.getOrderBy(), input -> input + " " + node.getOrderings().get(input));
+            Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrderings().get(input));
             boolean isPartial = false;
             if (SystemSessionProperties.isDistributedSortEnabled(session)) {
                 isPartial = true;

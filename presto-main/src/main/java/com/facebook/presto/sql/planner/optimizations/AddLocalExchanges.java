@@ -174,8 +174,8 @@ public class AddLocalExchanges
         {
             if (SystemSessionProperties.isDistributedSortEnabled(session)) {
                 PlanWithProperties sortPlan = planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
-                List<Symbol> orderBy = node.getOrderBy();
-                Map<Symbol, SortOrder> orderings = node.getOrderings();
+                List<Symbol> orderBy = node.getOrderingScheme().getOrderBy();
+                Map<Symbol, SortOrder> orderings = node.getOrderingScheme().getOrderings();
 
                 if (!sortPlan.getProperties().isSingleStream()) {
                     return deriveProperties(

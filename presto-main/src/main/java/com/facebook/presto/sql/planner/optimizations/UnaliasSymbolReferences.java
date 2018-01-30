@@ -475,15 +475,15 @@ public class UnaliasSymbolReferences
             Set<Symbol> added = new HashSet<>();
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-            for (Symbol symbol : node.getOrderBy()) {
+            for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
                 Symbol canonical = canonicalize(symbol);
                 if (added.add(canonical)) {
                     symbols.add(canonical);
-                    orderings.put(canonical, node.getOrderings().get(symbol));
+                    orderings.put(canonical, node.getOrderingScheme().getOrderings().get(symbol));
                 }
             }
 
-            return new SortNode(node.getId(), source, symbols.build(), orderings.build());
+            return new SortNode(node.getId(), source, new OrderingScheme(symbols.build(), orderings.build()));
         }
 
         @Override

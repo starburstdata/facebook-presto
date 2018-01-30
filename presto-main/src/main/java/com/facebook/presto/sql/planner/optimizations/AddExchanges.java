@@ -475,8 +475,8 @@ public class AddExchanges
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
                 List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-                for (Symbol symbol : node.getOrderBy()) {
-                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+                for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
+                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderingScheme().getOrderings().get(symbol)));
                 }
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
@@ -486,14 +486,15 @@ public class AddExchanges
             }
 
             if (isDistributedSortEnabled(session)) {
-                List<Symbol> orderBy = node.getOrderBy();
-                Map<Symbol, SortOrder> orderings = node.getOrderings();
+                List<Symbol> orderBy = node.getOrderingScheme().getOrderBy();
+                Map<Symbol, SortOrder> orderings = node.getOrderingScheme().getOrderings();
 
                 PlanNode source = child.getNode();
                 if (isRedistributeSort(session)) {
                     source = roundRobinExchange(idAllocator.getNextId(), REMOTE, source);
                 }
 
+                OrderingScheme orderingScheme = new OrderingScheme(orderBy, orderings);
                 return withDerivedProperties(
                         mergingExchange(
                                 idAllocator.getNextId(),
@@ -501,9 +502,8 @@ public class AddExchanges
                                 new SortNode(
                                         idAllocator.getNextId(),
                                         source,
-                                        orderBy,
-                                        orderings),
-                                new OrderingScheme(orderBy, orderings)),
+                                        orderingScheme),
+                                orderingScheme),
                         child.getProperties());
             }
 
