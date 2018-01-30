@@ -324,8 +324,13 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
     {
+        return exchange(scope, type, Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, Optional<ImmutableMap<String, SortOrder>> orderingScheme, PlanMatchPattern... sources)
+    {
         return node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type));
+                .with(new ExchangeMatcher(scope, type, orderingScheme));
     }
 
     public static PlanMatchPattern union(PlanMatchPattern... sources)

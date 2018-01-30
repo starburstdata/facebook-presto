@@ -16,22 +16,32 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.sql.planner.OrderingScheme;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.Optional;
+
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 final class ExchangeMatcher
         implements Matcher
 {
     private final ExchangeNode.Scope scope;
     private final ExchangeNode.Type type;
+    private final Optional<ImmutableMap<String, SortOrder>> orderingScheme;
 
-    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type)
+    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, Optional<ImmutableMap<String, SortOrder>> orderingScheme)
     {
         this.scope = scope;
         this.type = type;
+        this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
     }
 
     @Override
@@ -49,8 +59,21 @@ final class ExchangeMatcher
     public MatchResult detailMatches(PlanNode node, PlanNodeStatsEstimate stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
+        ExchangeNode exchangeNode = (ExchangeNode) node;
 
-        // TODO: properly implement this
+        if (orderingScheme.isPresent()) {
+            if (!exchangeNode.getOrderingScheme().isPresent()) {
+                return NO_MATCH;
+            }
+
+            for (String alias : orderingScheme.get().keySet()) {
+                Symbol symbol = Symbol.from(symbolAliases.get(alias));
+                OrderingScheme nodeOrderingScheme = exchangeNode.getOrderingScheme().get();
+                if (!orderingScheme.get().get(alias).equals(nodeOrderingScheme.getOrderings().get(symbol))) {
+                    return NO_MATCH;
+                }
+            }
+        }
 
         return MatchResult.match();
     }
@@ -61,6 +84,7 @@ final class ExchangeMatcher
         return toStringHelper(this)
                 .add("scope", scope)
                 .add("type", type)
+                .add("orderingScheme", orderingScheme.orElse(null))
                 .toString();
     }
 }
