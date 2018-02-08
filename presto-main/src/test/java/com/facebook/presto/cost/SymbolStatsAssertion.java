@@ -106,7 +106,8 @@ public class SymbolStatsAssertion
         return this;
     }
 
-    public SymbolStatsAssertion isEqualTo(SymbolStatsEstimate expected) {
+    public SymbolStatsAssertion isEqualTo(SymbolStatsEstimate expected)
+    {
         return nullsFraction(expected.getNullsFraction())
                 .lowValue(expected.getLowValue())
                 .highValue(expected.getHighValue())
