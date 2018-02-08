@@ -26,6 +26,8 @@ import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
@@ -53,7 +55,7 @@ public class TestFeaturesConfig
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(true)
-                .setJoinReorderingEnabled(true)
+                .setJoinReorderingStrategy(ELIMINATE_CROSS_JOINS)
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
@@ -121,7 +123,7 @@ public class TestFeaturesConfig
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
                 .put("spatial-joins-enabled", "false")
-                .put("reorder-joins", "false")
+                .put("optimizer.join-reordering-strategy", "NONE")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "true")
                 .put("writer-min-size", "42GB")
@@ -169,7 +171,7 @@ public class TestFeaturesConfig
                 .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(true)
                 .setSpatialJoinsEnabled(false)
-                .setJoinReorderingEnabled(false)
+                .setJoinReorderingStrategy(NONE)
                 .setRedistributeWrites(false)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
