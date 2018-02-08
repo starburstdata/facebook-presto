@@ -33,6 +33,7 @@ import com.facebook.presto.cost.EnforceSingleRowStatsRule;
 import com.facebook.presto.cost.ExchangeStatsRule;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.FilterStatsRule;
+import com.facebook.presto.cost.JoinStatsRule;
 import com.facebook.presto.cost.LimitStatsRule;
 import com.facebook.presto.cost.OutputStatsRule;
 import com.facebook.presto.cost.ProjectStatsRule;
@@ -503,15 +504,17 @@ public class ServerMainModule
     public static StatsCalculator createNewStatsCalculator(Metadata metadata)
     {
         StatsNormalizer normalizer = new StatsNormalizer();
+        FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata, normalizer);
         ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata, normalizer));
-        rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata, normalizer)));
+        rules.add(new FilterStatsRule(filterStatsCalculator));
         rules.add(new ValuesStatsRule(metadata));
         rules.add(new LimitStatsRule(normalizer));
         rules.add(new EnforceSingleRowStatsRule(normalizer));
         rules.add(new ProjectStatsRule(new ScalarStatsCalculator(metadata), normalizer));
         rules.add(new ExchangeStatsRule(normalizer));
+        rules.add(new JoinStatsRule(filterStatsCalculator, normalizer));
 
         return new ComposableStatsCalculator(rules.build(), normalizer);
     }
