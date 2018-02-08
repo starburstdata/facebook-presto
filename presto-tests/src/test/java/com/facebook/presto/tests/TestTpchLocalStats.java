@@ -25,7 +25,9 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_NEW_STATS_CALCULATOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
 import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
+import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -89,5 +91,120 @@ public class TestTpchLocalStats
 
         statisticsAssertion.check("SELECT * FROM orders WHERE NOT (o_orderdate >= DATE '1993-10-01' AND o_orderdate < DATE '1993-10-01' + INTERVAL '3' MONTH)",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+    }
+
+    @Test
+    public void testInnerJoinStats()
+    {
+        // cross join
+        statisticsAssertion.check("SELECT * FROM supplier, nation",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyExactColumnStatistics("s_nationkey")
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("s_suppkey"));
+        statisticsAssertion.check("SELECT * FROM supplier, nation WHERE n_nationkey <= 12",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyExactColumnStatistics("s_nationkey")
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.10))
+                        .verifyExactColumnStatistics("s_suppkey"));
+
+        // simple equi joins
+        statisticsAssertion.check("SELECT * FROM supplier, nation WHERE s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyExactColumnStatistics("s_nationkey")
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("s_suppkey"));
+        statisticsAssertion.check("SELECT * FROM supplier, nation WHERE s_nationkey = n_nationkey AND n_nationkey <= 12",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.15))
+                        .verifyColumnStatistics("s_nationkey", relativeError(0.15))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.15)));
+
+        // two joins on different keys
+        statisticsAssertion.check("SELECT * FROM nation, supplier, partsupp WHERE n_nationkey = s_nationkey AND s_suppkey = ps_suppkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, defaultTolerance())
+                        .verifyExactColumnStatistics("ps_partkey")
+                        .verifyExactColumnStatistics("n_nationkey")
+                        .verifyExactColumnStatistics("s_nationkey")
+                        .verifyExactColumnStatistics("n_name"));
+        statisticsAssertion.check("SELECT * FROM nation, supplier, partsupp WHERE n_nationkey = s_nationkey AND s_suppkey = ps_suppkey AND n_nationkey <= 12",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.15))
+                        .verifyColumnStatistics("ps_partkey", relativeError(0.15))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.15))
+                        .verifyColumnStatistics("s_nationkey", relativeError(0.15)));
+    }
+
+    @Test
+    public void testLeftJoinStats()
+    {
+        // simple equi join
+        statisticsAssertion.check("SELECT * FROM supplier left join nation on s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
+        statisticsAssertion.check("SELECT * FROM supplier left join nation on s_nationkey = n_nationkey AND n_nationkey <= 12",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
+        statisticsAssertion.check("SELECT * FROM (SELECT * FROM supplier WHERE s_nationkey <= 12) left join nation on s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(2.0))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(2.0)));
+    }
+
+    @Test
+    public void testRightJoinStats()
+    {
+        // simple equi join
+        statisticsAssertion.check("SELECT * FROM nation right join supplier on s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
+        statisticsAssertion.check("SELECT * FROM nation right join supplier on s_nationkey = n_nationkey AND n_nationkey <= 12",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
+        statisticsAssertion.check("SELECT * FROM nation right JOIN (SELECT * FROM supplier WHERE s_nationkey <= 12) on s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(2.0))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(2.0)));
+    }
+
+    @Test
+    public void testFullJoinStats()
+    {
+        // simple equi join
+        statisticsAssertion.check("SELECT * FROM nation full join supplier on s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
+        statisticsAssertion.check("SELECT * FROM (SELECT * FROM nation WHERE n_nationkey <= 12) full join supplier on s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", absoluteError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("s_suppkey", absoluteError(0.40)));
+        statisticsAssertion.check("SELECT * FROM nation full join (SELECT * FROM supplier WHERE s_nationkey <= 12) on s_nationkey = n_nationkey",
+                checks -> checks
+                        .estimate(OUTPUT_ROW_COUNT, relativeError(0.70))
+                        .verifyColumnStatistics("s_nationkey", relativeError(0.40))
+                        .verifyColumnStatistics("n_nationkey", relativeError(0.40)));
     }
 }
