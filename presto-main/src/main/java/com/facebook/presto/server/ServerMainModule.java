@@ -511,7 +511,10 @@ public class ServerMainModule
         rules.add(new LimitStatsRule());
         rules.add(new EnforceSingleRowStatsRule());
         rules.add(new ProjectStatsRule(scalarStatsCalculator));
-        return new ComposableStatsCalculator(rules.build());
+
+        ImmutableList.Builder<ComposableStatsCalculator.Normalizer> normalizers = ImmutableList.builder();
+
+        return new ComposableStatsCalculator(rules.build(), normalizers.build());
     }
 
     @Provides

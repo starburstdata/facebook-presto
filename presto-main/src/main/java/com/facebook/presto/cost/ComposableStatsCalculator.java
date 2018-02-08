@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 
@@ -41,8 +42,9 @@ public class ComposableStatsCalculator
         implements StatsCalculator
 {
     private final ListMultimap<Class<?>, Rule> rulesByRootType;
+    private final List<Normalizer> normalizers;
 
-    public ComposableStatsCalculator(List<Rule> rules)
+    public ComposableStatsCalculator(List<Rule> rules, List<Normalizer> normalizers)
     {
         this.rulesByRootType = rules.stream()
                 .peek(rule -> {
@@ -54,6 +56,7 @@ public class ComposableStatsCalculator
                         rule -> ((TypeOfPattern<?>) rule.getPattern()).expectedClass(),
                         rule -> rule,
                         ArrayListMultimap::create));
+        this.normalizers = ImmutableList.copyOf(normalizers);
     }
 
     private Stream<Rule> getCandidates(PlanNode node)
@@ -80,6 +83,11 @@ public class ComposableStatsCalculator
         Optional<PlanNodeStatsEstimate> calculate(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, Map<Symbol, Type> types);
     }
 
+    public interface Normalizer
+    {
+        PlanNodeStatsEstimate normalize(PlanNode node, PlanNodeStatsEstimate estimate, Map<Symbol, Type> types);
+    }
+
     private class Visitor
             extends PlanVisitor<PlanNodeStatsEstimate, Void>
     {
@@ -104,10 +112,18 @@ public class ComposableStatsCalculator
                 Rule rule = ruleIterator.next();
                 Optional<PlanNodeStatsEstimate> calculatedStats = rule.calculate(node, sourceStats, lookup, session, types);
                 if (calculatedStats.isPresent()) {
-                    return calculatedStats.get();
+                    return normalize(node, calculatedStats.get());
                 }
             }
             return PlanNodeStatsEstimate.UNKNOWN_STATS;
+        }
+
+        private PlanNodeStatsEstimate normalize(PlanNode node, PlanNodeStatsEstimate estimate)
+        {
+            for (Normalizer normalizer : normalizers) {
+                estimate = normalizer.normalize(node, estimate, types);
+            }
+            return estimate;
         }
     }
 }
