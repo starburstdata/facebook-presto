@@ -295,6 +295,10 @@ public class FilterStatsCalculator
                 return visitExpression(node, context);
             }
 
+            if (left instanceof SymbolReference && right instanceof SymbolReference && left.equals(right)) {
+                return process(new IsNotNullPredicate(left));
+            }
+
             return comparisonExpressionToExpressionStats(input, leftSymbol, leftStats.get(), rightSymbol, rightStats.get(), type);
         }
 

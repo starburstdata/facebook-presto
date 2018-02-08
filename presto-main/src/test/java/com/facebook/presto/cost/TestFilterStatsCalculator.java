@@ -445,6 +445,22 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testSymbolEqualsSameSymbolFilter()
+    {
+        Expression symbolEqualsSymbol = new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new SymbolReference("x"));
+        assertExpression(symbolEqualsSymbol)
+                .outputRowsCount(750)
+                .symbolStats("x", symbolStats -> {
+                    SymbolStatsEstimate.builder()
+                            .setAverageRowSize(4.0)
+                            .setDistinctValuesCount(40.0)
+                            .setLowValue(-10.0)
+                            .setHighValue(10.0)
+                            .build();
+                });
+    }
+
+    @Test
     public void testInPredicateFilter()
     {
         // One value in range
