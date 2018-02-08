@@ -35,9 +35,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -58,7 +60,7 @@ public class FeaturesConfig
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
-    private boolean distributedJoinsEnabled = true;
+    private JoinDistributionType joinDistributionType = REPARTITIONED;
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private boolean spatialJoinsEnabled = true;
@@ -112,6 +114,23 @@ public class FeaturesConfig
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
 
+    public enum JoinDistributionType
+    {
+        REPLICATED,
+        REPARTITIONED,
+        AUTOMATIC;
+
+        public boolean canRepartition()
+        {
+            return this == REPARTITIONED || this == AUTOMATIC;
+        }
+
+        public boolean canReplicate()
+        {
+            return this == REPLICATED || this == AUTOMATIC;
+        }
+    }
+
     public double getCpuCostWeight()
     {
         return cpuCostWeight;
@@ -158,11 +177,6 @@ public class FeaturesConfig
     {
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
         return this;
-    }
-
-    public boolean isDistributedJoinsEnabled()
-    {
-        return distributedJoinsEnabled;
     }
 
     @Config("deprecated.legacy-round-n-bigint")
@@ -261,10 +275,15 @@ public class FeaturesConfig
         return legacyMapSubscript;
     }
 
-    @Config("distributed-joins-enabled")
-    public FeaturesConfig setDistributedJoinsEnabled(boolean distributedJoinsEnabled)
+    public JoinDistributionType getJoinDistributionType()
     {
-        this.distributedJoinsEnabled = distributedJoinsEnabled;
+        return joinDistributionType;
+    }
+
+    @Config("join-distribution-type")
+    public FeaturesConfig setJoinDistributionType(JoinDistributionType joinDistributionType)
+    {
+        this.joinDistributionType = requireNonNull(joinDistributionType, "joinDistributionType is null");
         return this;
     }
 
