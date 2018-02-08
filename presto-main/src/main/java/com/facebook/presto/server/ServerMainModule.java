@@ -33,6 +33,7 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.EnforceSingleRowStatsRule;
 import com.facebook.presto.cost.EnsureStatsMatchOutput;
+import com.facebook.presto.cost.ExchangeStatsRule;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.FilterStatsRule;
 import com.facebook.presto.cost.LimitStatsRule;
@@ -513,6 +514,7 @@ public class ServerMainModule
         rules.add(new ValuesStatsRule(metadata));
         rules.add(new LimitStatsRule());
         rules.add(new EnforceSingleRowStatsRule());
+        rules.add(new ExchangeStatsRule());
         rules.add(new ProjectStatsRule(scalarStatsCalculator));
 
         ImmutableList.Builder<ComposableStatsCalculator.Normalizer> normalizers = ImmutableList.builder();
