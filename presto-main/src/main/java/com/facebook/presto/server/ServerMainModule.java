@@ -45,7 +45,9 @@ import com.facebook.presto.cost.ProjectStatsRule;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator.New;
+import com.facebook.presto.cost.SemiJoinStatsCalculator;
 import com.facebook.presto.cost.SemiJoinStatsRule;
+import com.facebook.presto.cost.SimpleFilterProjectSemiJoinStatsRule;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TableScanStatsRule;
 import com.facebook.presto.cost.UnionStatsRule;
@@ -397,6 +399,7 @@ public class ServerMainModule
         binder.bind(StatsCalculator.class).annotatedWith(SelectingStatsCalculator.Old.class).to(CoefficientBasedStatsCalculator.class).in(Scopes.SINGLETON);
         binder.bind(StatsCalculator.class).to(SelectingStatsCalculator.class).in(Scopes.SINGLETON);
         binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);
+        binder.bind(SemiJoinStatsCalculator.class).in(Scopes.SINGLETON);
 
         // cost calculator
         binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
@@ -510,12 +513,15 @@ public class ServerMainModule
     @Provides
     @Singleton
     @New
-    public static StatsCalculator createNewStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator)
+    public static StatsCalculator createNewStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, SemiJoinStatsCalculator semiJoinStatsCalculator)
     {
+        FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata);
+
         ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
         rules.add(new TableScanStatsRule(metadata));
-        rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata)));
+        rules.add(new SimpleFilterProjectSemiJoinStatsRule(filterStatsCalculator, semiJoinStatsCalculator)); // this must be added before FilterStatsRule
+        rules.add(new FilterStatsRule(filterStatsCalculator));
         rules.add(new ValuesStatsRule(metadata));
         rules.add(new LimitStatsRule());
         rules.add(new EnforceSingleRowStatsRule());

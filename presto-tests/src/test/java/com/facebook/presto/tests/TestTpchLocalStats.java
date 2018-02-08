@@ -256,4 +256,20 @@ public class TestTpchLocalStats
                         .verifyExactColumnStatistics("n_nationkey")
                         .verifyExactColumnStatistics("n_regionkey"));
     }
+
+    @Test
+    public void testInSubquery()
+    {
+        statisticsAssertion.check("select * from lineitem where l_orderkey in (select o_orderkey from orders where o_orderdate >= DATE '1993-10-01')",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
+    }
+
+    @Test
+    public void testNotInSubquery()
+    {
+        statisticsAssertion.check("select * from lineitem where l_orderkey not in (select o_orderkey from orders where o_orderdate >= DATE '1993-10-01')",
+                // we allow overestimating here. That is because safety heuristic for antijoin which enforces that not more that 50%
+                // of values are filtered out.
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.0, 1.0)));
+    }
 }

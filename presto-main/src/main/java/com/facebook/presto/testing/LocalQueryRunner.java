@@ -36,6 +36,7 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
+import com.facebook.presto.cost.SemiJoinStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
@@ -328,7 +329,7 @@ public class LocalQueryRunner
                 transactionManager);
         this.statsCalculator = new SelectingStatsCalculator(
                 new CoefficientBasedStatsCalculator(metadata),
-                ServerMainModule.createNewStatsCalculator(metadata, new ScalarStatsCalculator(metadata)));
+                ServerMainModule.createNewStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new SemiJoinStatsCalculator()));
         this.costCalculator = new CostCalculatorUsingExchanges(this::getNodeCount);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, this::getNodeCount);
         this.accessControl = new TestingAccessControlManager(transactionManager);
