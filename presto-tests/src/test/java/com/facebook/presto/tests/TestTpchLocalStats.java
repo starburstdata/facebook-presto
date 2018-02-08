@@ -123,6 +123,12 @@ public class TestTpchLocalStats
                         .verifyColumnStatistics("s_nationkey", relativeError(0.15))
                         .verifyColumnStatistics("n_nationkey", relativeError(0.15)));
 
+        // simple equi join, different ranges
+        statisticsAssertion.check("SELECT n1.n_nationkey FROM nation n1, nation n2 WHERE n1.n_nationkey + 1 = n2.n_nationkey - 1 AND n1.n_nationkey > 5 AND n2.n_nationkey < 20",
+                // Join is over expressions so that predicate push down doesn't unify ranges of n_nationkey coming from n1 and n2. This, however, makes symbols
+                // stats inaccurate (rules can't update them), so we don't verify them.
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, absoluteError(3)));
+
         // two joins on different keys
         statisticsAssertion.check("SELECT * FROM nation, supplier, partsupp WHERE n_nationkey = s_nationkey AND s_suppkey = ps_suppkey",
                 checks -> checks
