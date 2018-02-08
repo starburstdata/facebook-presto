@@ -19,6 +19,7 @@ import com.facebook.presto.TaskSource;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
@@ -130,7 +131,7 @@ public final class TaskTestUtils
                 new SqlParser(),
                 new SelectingStatsCalculator(
                         new CoefficientBasedStatsCalculator(metadata),
-                        ServerMainModule.createNewStatsCalculator(metadata)),
+                        ServerMainModule.createNewStatsCalculator(metadata, new ScalarStatsCalculator(metadata))),
                 new CostCalculatorUsingExchanges(() -> 1),
                 Optional.empty(),
                 pageSourceManager,
