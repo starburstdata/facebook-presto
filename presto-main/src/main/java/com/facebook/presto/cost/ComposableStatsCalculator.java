@@ -21,28 +21,35 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Multimaps.toMultimap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class ComposableStatsCalculator
         implements StatsCalculator
 {
     private final ListMultimap<Class<?>, Rule> rulesByRootType;
+    private final StatsNormalizer normalizer;
 
-    public ComposableStatsCalculator(List<Rule> rules)
+    public ComposableStatsCalculator(List<Rule> rules, StatsNormalizer normalizer)
     {
         this.rulesByRootType = rules.stream()
                 .peek(rule -> {
@@ -54,6 +61,7 @@ public class ComposableStatsCalculator
                         rule -> ((TypeOfPattern<?>) rule.getPattern()).expectedClass(),
                         rule -> rule,
                         ArrayListMultimap::create));
+        this.normalizer = requireNonNull(normalizer, "normalizer is null");
     }
 
     private Stream<Rule> getCandidates(PlanNode node)
@@ -71,6 +79,42 @@ public class ComposableStatsCalculator
     {
         Visitor visitor = new Visitor(sourceStats, lookup, session, types);
         return node.accept(visitor, null);
+    }
+
+    @VisibleForTesting
+    static void checkConsistent(StatsNormalizer normalizer, String source, PlanNodeStatsEstimate stats, Collection<Symbol> outputSymbols, Map<Symbol, Type> types)
+    {
+        PlanNodeStatsEstimate normalized = normalizer.normalize(stats, outputSymbols, types);
+        if (Objects.equals(stats, normalized)) {
+            return;
+        }
+
+        List<String> problems = new ArrayList<>();
+
+        if (Double.compare(stats.getOutputRowCount(), normalized.getOutputRowCount()) != 0) {
+            problems.add(format(
+                    "Output row count is %s, should be normalized to %s",
+                    stats.getOutputRowCount(),
+                    normalized.getOutputRowCount()));
+        }
+
+        for (Symbol symbol : stats.getSymbolsWithKnownStatistics()) {
+            if (!Objects.equals(stats.getSymbolStatistics(symbol), normalized.getSymbolStatistics(symbol))) {
+                problems.add(format(
+                        "Symbol stats for '%s' are \n\t\t\t\t\t%s, should be normalized to \n\t\t\t\t\t%s",
+                        symbol,
+                        stats.getSymbolStatistics(symbol),
+                        normalized.getSymbolStatistics(symbol)));
+            }
+        }
+
+        if (problems.isEmpty()) {
+            problems.add(stats.toString());
+        }
+        throw new IllegalStateException(format(
+                "Rule %s returned inconsistent stats: %s",
+                source,
+                problems.stream().collect(joining("\n\t\t\t", "\n\t\t\t", ""))));
     }
 
     public interface Rule
@@ -104,7 +148,9 @@ public class ComposableStatsCalculator
                 Rule rule = ruleIterator.next();
                 Optional<PlanNodeStatsEstimate> calculatedStats = rule.calculate(node, sourceStats, lookup, session, types);
                 if (calculatedStats.isPresent()) {
-                    return calculatedStats.get();
+                    PlanNodeStatsEstimate stats = calculatedStats.get();
+                    checkConsistent(normalizer, rule.toString(), stats, node.getOutputSymbols(), types);
+                    return stats;
                 }
             }
             return PlanNodeStatsEstimate.UNKNOWN_STATS;

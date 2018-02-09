@@ -39,6 +39,7 @@ import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator.New;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.cost.TableScanStatsRule;
 import com.facebook.presto.cost.ValuesStatsRule;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -500,15 +501,17 @@ public class ServerMainModule
     @New
     public static StatsCalculator createNewStatsCalculator(Metadata metadata)
     {
+        StatsNormalizer normalizer = new StatsNormalizer();
         ImmutableList.Builder<ComposableStatsCalculator.Rule> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
-        rules.add(new TableScanStatsRule(metadata));
-        rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata)));
+        rules.add(new TableScanStatsRule(metadata, normalizer));
+        rules.add(new FilterStatsRule(new FilterStatsCalculator(metadata, normalizer)));
         rules.add(new ValuesStatsRule(metadata));
-        rules.add(new LimitStatsRule());
-        rules.add(new EnforceSingleRowStatsRule());
-        rules.add(new ProjectStatsRule(new ScalarStatsCalculator(metadata)));
-        return new ComposableStatsCalculator(rules.build());
+        rules.add(new LimitStatsRule(normalizer));
+        rules.add(new EnforceSingleRowStatsRule(normalizer));
+        rules.add(new ProjectStatsRule(new ScalarStatsCalculator(metadata), normalizer));
+
+        return new ComposableStatsCalculator(rules.build(), normalizer);
     }
 
     @Provides

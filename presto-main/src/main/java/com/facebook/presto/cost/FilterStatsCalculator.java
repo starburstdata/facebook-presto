@@ -32,9 +32,12 @@ import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -65,10 +68,12 @@ public class FilterStatsCalculator
     private static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
 
     private final Metadata metadata;
+    private final StatsNormalizer normalizer;
 
-    public FilterStatsCalculator(Metadata metadata)
+    public FilterStatsCalculator(Metadata metadata, StatsNormalizer normalizer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.normalizer = requireNonNull(normalizer, "normalizer is null");
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -78,10 +83,10 @@ public class FilterStatsCalculator
             Map<Symbol, Type> types)
     {
         return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types).process(predicate)
-                .orElse(filterStatsForUnknownExpression(statsEstimate));
+                .orElseGet(() -> normalizer.normalize(filterStatsForUnknownExpression(statsEstimate), types));
     }
 
-    public static PlanNodeStatsEstimate filterStatsForUnknownExpression(PlanNodeStatsEstimate inputStatistics)
+    private static PlanNodeStatsEstimate filterStatsForUnknownExpression(PlanNodeStatsEstimate inputStatistics)
     {
         return inputStatistics.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
     }
@@ -98,6 +103,13 @@ public class FilterStatsCalculator
             this.input = input;
             this.session = session;
             this.types = types;
+        }
+
+        @Override
+        public Optional<PlanNodeStatsEstimate> process(Node node, @Nullable Void context)
+        {
+            return super.process(node, context)
+                    .map(estimate -> normalizer.normalize(estimate, types));
         }
 
         @Override

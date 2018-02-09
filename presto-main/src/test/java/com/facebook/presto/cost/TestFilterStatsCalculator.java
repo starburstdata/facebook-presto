@@ -109,7 +109,7 @@ public class TestFilterStatsCalculator
                 .setNullsFraction(0.1)
                 .build();
         SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
+                .setAverageRowSize(0.0)
                 .setDistinctValuesCount(0.0)
                 .setLowValue(NaN)
                 .setHighValue(NaN)
@@ -146,7 +146,7 @@ public class TestFilterStatsCalculator
                 .build();
 
         session = testSessionBuilder().build();
-        statsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager());
+        statsCalculator = new FilterStatsCalculator(MetadataManager.createTestMetadataManager(), new StatsNormalizer());
     }
 
     public PlanNodeStatsAssertion assertExpression(Expression expression)
@@ -243,8 +243,8 @@ public class TestFilterStatsCalculator
                 new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0"), new DoubleLiteral("1"))),
                 new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("x"), new ArithmeticBinaryExpression(ADD, new DoubleLiteral("0"), new DoubleLiteral("3")))))
                 .outputRowsCount(0)
-                .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange);
-        // TODO .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
+                .symbolStats(new Symbol("x"), SymbolStatsAssertion::emptyRange)
+                .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
         assertExpression(and(sinX, leftExpression))
