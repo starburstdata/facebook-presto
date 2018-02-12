@@ -18,33 +18,17 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestIntersectStatsRule
+        extends BaseStatsCalculatorTest
 {
-    private StatsCalculatorTester tester;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        tester = new StatsCalculatorTester();
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-        tester.close();
-        tester = null;
-    }
-
     @Test
     public void testIntersectWhenRangesAreOverlapping()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .intersect(
                         ImmutableList.<PlanNode>of(
                                 pb.values(pb.symbol("i11", BIGINT)),
@@ -84,7 +68,7 @@ public class TestIntersectStatsRule
     @Test
     public void testIntersectWhenRangesAreSeparated()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .intersect(
                         ImmutableList.<PlanNode>of(
                                 pb.values(pb.symbol("i11", BIGINT)),
@@ -122,7 +106,7 @@ public class TestIntersectStatsRule
     @Test
     public void testIntersectWhenLeftHasUnknownRange()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .intersect(
                         ImmutableList.<PlanNode>of(
                                 pb.values(pb.symbol("i11", BIGINT)),
@@ -159,7 +143,7 @@ public class TestIntersectStatsRule
     @Test
     public void testIntersectWhenRightIsUnknown()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .intersect(
                         ImmutableList.<PlanNode>of(
                                 pb.values(pb.symbol("i11", BIGINT)),
@@ -193,7 +177,7 @@ public class TestIntersectStatsRule
     @Test
     public void testIntersectWhenNullFractionsAreUnknown()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .intersect(
                         ImmutableList.<PlanNode>of(
                                 pb.values(pb.symbol("i11", BIGINT)),
@@ -231,7 +215,7 @@ public class TestIntersectStatsRule
     @Test
     public void testIntersectWithoutNulls()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .intersect(
                         ImmutableList.<PlanNode>of(
                                 pb.values(pb.symbol("i11", BIGINT)),

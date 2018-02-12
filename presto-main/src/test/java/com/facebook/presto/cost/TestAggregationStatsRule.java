@@ -15,8 +15,6 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
@@ -25,22 +23,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestAggregationStatsRule
+        extends BaseStatsCalculatorTest
 {
-    private StatsCalculatorTester tester;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        tester = new StatsCalculatorTester();
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-        tester.close();
-        tester = null;
-    }
-
     @Test
     public void testAggregationWhenAllStatisticsAreKnown()
     {
@@ -69,7 +53,7 @@ public class TestAggregationStatsRule
 
     private StatsCalculatorAssertion testAggregation(SymbolStatsEstimate zStats)
     {
-        return tester.assertStatsFor(pb -> pb
+        return assertStats(pb -> pb
                 .aggregation(ab -> ab
                         .addAggregation(pb.symbol("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
                         .addAggregation(pb.symbol("count", BIGINT), expression("count()"), ImmutableList.of())
@@ -115,7 +99,7 @@ public class TestAggregationStatsRule
     @Test
     public void testAggregationStatsCappedToInputRows()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .aggregation(ab -> ab
                         .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
                         .addGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))

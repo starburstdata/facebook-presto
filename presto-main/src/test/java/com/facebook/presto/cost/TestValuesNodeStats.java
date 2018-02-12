@@ -15,8 +15,6 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -26,26 +24,12 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NaN;
 
 public class TestValuesNodeStats
+        extends BaseStatsCalculatorTest
 {
-    private StatsCalculatorTester tester;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        tester = new StatsCalculatorTester();
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-        tester.close();
-        tester = null;
-    }
-
     @Test
     public void testStatsForValuesNode()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
                         ImmutableList.of(
                                 ImmutableList.of(expression("3+3"), expression("13.5e0")),
@@ -88,19 +72,19 @@ public class TestValuesNodeStats
                                 .build())
                 .build();
 
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                         ImmutableList.of(
                                 ImmutableList.of(expression("3 + null")))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                         ImmutableList.of(
                                 ImmutableList.of(expression("null")))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", UNKNOWN)),
                         ImmutableList.of(
                                 ImmutableList.of(expression("null")))))
@@ -110,7 +94,7 @@ public class TestValuesNodeStats
     @Test
     public void testStatsForEmptyValues()
     {
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .values(ImmutableList.of(pb.symbol("a", BIGINT)),
                         ImmutableList.of()))
                 .check(outputStats -> outputStats.equalTo(

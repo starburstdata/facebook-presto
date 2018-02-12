@@ -16,8 +16,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -27,9 +25,8 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
+        extends BaseStatsCalculatorTest
 {
-    private StatsCalculatorTester tester;
-
     private SymbolStatsEstimate aStats = SymbolStatsEstimate.builder()
             .setLowValue(0)
             .setHighValue(10)
@@ -72,26 +69,13 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
             .setNullsFraction(0)
             .build();
 
-    @BeforeClass
-    public void setUp()
-    {
-        tester = new StatsCalculatorTester();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        tester.close();
-        tester = null;
-    }
-
     private static final PlanNodeId LEFT_SOURCE_ID = new PlanNodeId("left_source_values");
     private static final PlanNodeId RIGHT_SOURCE_ID = new PlanNodeId("right_source_values");
 
     @Test
     public void testFilterPositiveSemiJoin()
     {
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol a = pb.symbol("a", BIGINT);
             Symbol b = pb.symbol("b", BIGINT);
             Symbol c = pb.symbol("c", BIGINT);
@@ -129,7 +113,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test
     public void testFilterPositiveNarrowingProjectSemiJoin()
     {
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol a = pb.symbol("a", BIGINT);
             Symbol b = pb.symbol("b", BIGINT);
             Symbol c = pb.symbol("c", BIGINT);
@@ -168,7 +152,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test
     public void testFilterPositivePlusExtraConjunctSemiJoin()
     {
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol a = pb.symbol("a", BIGINT);
             Symbol b = pb.symbol("b", BIGINT);
             Symbol c = pb.symbol("c", BIGINT);
@@ -206,7 +190,7 @@ public class TestSimpleFilterProjectSemiJoinStatsRule
     @Test
     public void testFilterNegativeSemiJoin()
     {
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol a = pb.symbol("a", BIGINT);
             Symbol b = pb.symbol("b", BIGINT);
             Symbol c = pb.symbol("c", BIGINT);

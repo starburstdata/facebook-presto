@@ -21,7 +21,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -38,6 +37,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.lang.Double.NaN;
 
 public class TestJoinStatsRule
+        extends BaseStatsCalculatorTest
 {
     private static final String LEFT_JOIN_COLUMN = "left_join_column";
     private static final String LEFT_JOIN_COLUMN_2 = "left_join_column_2";
@@ -83,18 +83,8 @@ public class TestJoinStatsRule
 
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(new FilterStatsCalculator(createTestMetadataManager()), 1.0);
 
-    private StatsCalculatorTester tester;
-
-    @BeforeMethod
-    public void setUp()
-            throws Exception
-    {
-        tester = new StatsCalculatorTester();
-    }
-
     @Test
     public void testStatsForInnerJoin()
-            throws Exception
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
         PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
@@ -107,7 +97,6 @@ public class TestJoinStatsRule
 
     @Test
     public void testStatsForInnerJoinWithRepeatedClause()
-            throws Exception
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS // driver join clause
                 * UNKNOWN_FILTER_COEFFICIENT; // auxiliary join clause
@@ -116,7 +105,7 @@ public class TestJoinStatsRule
                 symbolStatistics(RIGHT_JOIN_COLUMN, 5.0, 20.0, 0.0, RIGHT_JOIN_COLUMN_NDV),
                 LEFT_OTHER_COLUMN_STATS, RIGHT_OTHER_COLUMN_STATS);
 
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
             Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
             Symbol leftOtherColumnSymbol = pb.symbol(LEFT_OTHER_COLUMN, BIGINT);
@@ -132,7 +121,6 @@ public class TestJoinStatsRule
 
     @Test
     public void testStatsForInnerJoinWithTwoEquiClauses()
-            throws Exception
     {
         double innerJoinRowCount =
                 LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_2_NDV * LEFT_JOIN_COLUMN_2_NON_NULLS * RIGHT_JOIN_COLUMN_2_NON_NULLS // driver join clause
@@ -143,7 +131,7 @@ public class TestJoinStatsRule
                 symbolStatistics(LEFT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV),
                 symbolStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV));
 
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
             Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
             Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
@@ -159,7 +147,6 @@ public class TestJoinStatsRule
 
     @Test
     public void testStatsForInnerJoinWithTwoEquiClausesAndNonEqualityFunction()
-            throws Exception
     {
         double innerJoinRowCount =
                 LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_2_NDV * LEFT_JOIN_COLUMN_2_NON_NULLS * RIGHT_JOIN_COLUMN_2_NON_NULLS // driver join clause
@@ -171,7 +158,7 @@ public class TestJoinStatsRule
                 symbolStatistics(LEFT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV),
                 symbolStatistics(RIGHT_JOIN_COLUMN_2, 100.0, 200.0, 0.0, RIGHT_JOIN_COLUMN_2_NDV));
 
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, BIGINT);
             Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
             Symbol leftJoinColumnSymbol2 = pb.symbol(LEFT_JOIN_COLUMN_2, BIGINT);
@@ -296,7 +283,7 @@ public class TestJoinStatsRule
 
     private void assertJoinStats(JoinNode.Type joinType, String leftJoinColumn, String leftOtherColumn, String rightJoinColumn, String rightOtherColumn, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats, PlanNodeStatsEstimate resultStats)
     {
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol leftJoinColumnSymbol = pb.symbol(leftJoinColumn, BIGINT);
             Symbol rightJoinColumnSymbol = pb.symbol(rightJoinColumn, DOUBLE);
             Symbol leftOtherColumnSymbol = pb.symbol(leftOtherColumn, BIGINT);

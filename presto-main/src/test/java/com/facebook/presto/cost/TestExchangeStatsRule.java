@@ -16,30 +16,14 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.Collections.emptyList;
 
 public class TestExchangeStatsRule
+        extends BaseStatsCalculatorTest
 {
-    private StatsCalculatorTester tester;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        tester = new StatsCalculatorTester();
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-        tester.close();
-        tester = null;
-    }
-
     @Test
     public void testExchange()
     {
@@ -49,7 +33,7 @@ public class TestExchangeStatsRule
         // i13, i23 have some unknown range stats
         // i14, i24 have the same stats
 
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .exchange(exchangeBuilder -> exchangeBuilder
                         .addInputsSet(pb.symbol("i11", BIGINT), pb.symbol("i12", BIGINT), pb.symbol("i13", BIGINT), pb.symbol("i14", BIGINT))
                         .addInputsSet(pb.symbol("i21", BIGINT), pb.symbol("i22", BIGINT), pb.symbol("i23", BIGINT), pb.symbol("i24", BIGINT))
