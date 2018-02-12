@@ -84,6 +84,30 @@ public class TestCassandraIntegrationSmokeTest
         createTestTables(session, KEYSPACE, DATE_LOCAL);
     }
 
+    @Override
+    protected boolean isDateTypeSupported()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return false;
+    }
+
+    @Override
+    public void testCreateTable()
+    {
+        // this connector does not support creating tables (only CREATE TABLE AS SELECT is supported)
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // this connector does not support DELETE
+    }
+
     @Test
     public void testPartitionKeyPredicate()
     {

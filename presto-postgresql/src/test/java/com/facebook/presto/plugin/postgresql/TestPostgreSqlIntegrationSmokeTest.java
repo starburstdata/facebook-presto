@@ -27,7 +27,6 @@ import java.sql.Statement;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -57,14 +56,10 @@ public class TestPostgreSqlIntegrationSmokeTest
         postgreSqlServer.close();
     }
 
-    @Test
-    public void testDropTable()
+    @Override
+    public void testCreateTable()
     {
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
+        // this connector does not support creating tables (only CREATE TABLE AS SELECT is supported)
     }
 
     @Test

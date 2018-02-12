@@ -45,4 +45,28 @@ public class TestRedisIntegrationSmokeTest
     {
         embeddedRedis.close();
     }
+
+    @Override
+    public void testCreateTable()
+    {
+        // this connector does not support creating tables
+    }
+
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        // this connector does not support creating tables
+    }
+
+    @Override
+    public void createTableWithUnicode()
+    {
+        // this connector does not support creating tables
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // this connector does not support creating tables and this is required by testDelete
+    }
 }

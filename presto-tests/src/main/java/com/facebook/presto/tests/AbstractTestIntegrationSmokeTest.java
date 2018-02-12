@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
-import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
-
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
@@ -30,6 +30,16 @@ public abstract class AbstractTestIntegrationSmokeTest
     protected AbstractTestIntegrationSmokeTest(QueryRunnerSupplier supplier)
     {
         super(supplier);
+    }
+
+    protected boolean isDateTypeSupported()
+    {
+        return true;
+    }
+
+    protected boolean isParameterizedVarcharSupported()
+    {
+        return true;
     }
 
     @Test
@@ -113,14 +123,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testDescribeTable()
     {
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toTestTypes();
-
-        // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
-        List<MaterializedResult> expectedColumnsPossibilities = ImmutableList.of(
-                getExpectedTableDescription(true, true),
-                getExpectedTableDescription(true, false),
-                getExpectedTableDescription(false, true),
-                getExpectedTableDescription(false, false));
-        assertTrue(expectedColumnsPossibilities.contains(actualColumns), String.format("%s not in %s", actualColumns, expectedColumnsPossibilities));
+        assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
     }
 
     @Test
@@ -184,7 +187,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "line 1:49: Column name 'orderkey' specified more than once");
     }
 
-    private MaterializedResult getExpectedTableDescription(boolean dateSupported, boolean parametrizedVarchar)
+    private MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
     {
         String orderDateType;
         if (dateSupported) {
@@ -197,19 +200,6 @@ public abstract class AbstractTestIntegrationSmokeTest
             return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                     .row("orderkey", "bigint", "", "")
                     .row("custkey", "bigint", "", "")
-                    .row("orderstatus", "varchar", "", "")
-                    .row("totalprice", "double", "", "")
-                    .row("orderdate", orderDateType, "", "")
-                    .row("orderpriority", "varchar", "", "")
-                    .row("clerk", "varchar", "", "")
-                    .row("shippriority", "integer", "", "")
-                    .row("comment", "varchar", "", "")
-                    .build();
-        }
-        else {
-            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "", "")
-                    .row("custkey", "bigint", "", "")
                     .row("orderstatus", "varchar(1)", "", "")
                     .row("totalprice", "double", "", "")
                     .row("orderdate", orderDateType, "", "")
@@ -219,5 +209,182 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("comment", "varchar(79)", "", "")
                     .build();
         }
+        else {
+            return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar", "", "")
+                    .row("clerk", "varchar", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar", "", "")
+                    .build();
+        }
+    }
+
+    // This also tests DROP TABLE
+    @Test
+    public void testCreateTable()
+    {
+        assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
+        assertTableColumnNames("test_create", "a", "b", "c");
+
+        assertUpdate("DROP TABLE test_create");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
+
+        assertUpdate("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
+        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
+
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_if_not_exists (d bigint, e varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
+        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
+
+        assertUpdate("DROP TABLE test_create_table_if_not_exists");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
+
+        // Test CREATE TABLE LIKE
+        assertUpdate("CREATE TABLE test_create_original (a bigint, b double, c varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_original"));
+        assertTableColumnNames("test_create_original", "a", "b", "c");
+
+        assertUpdate("CREATE TABLE test_create_like (LIKE test_create_original, d boolean, e varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_like"));
+        assertTableColumnNames("test_create_like", "a", "b", "c", "d", "e");
+
+        assertUpdate("DROP TABLE test_create_original");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_original"));
+
+        assertUpdate("DROP TABLE test_create_like");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_like"));
+    }
+
+    // This also tests DROP TABLE
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists AS SELECT BIGINT '1' AS a, 2e0 AS b", 1);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
+
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem", 0);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
+
+        assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+
+        assertCreateTableAsSelect(
+                "test_select",
+                "SELECT orderdate, orderkey, totalprice FROM orders",
+                "SELECT count(*) FROM orders");
+
+        assertCreateTableAsSelect(
+                "test_with_data",
+                "SELECT * FROM orders WITH DATA",
+                "SELECT * FROM orders",
+                "SELECT count(*) FROM orders");
+
+        assertCreateTableAsSelect(
+                "test_with_no_data",
+                "SELECT * FROM orders WITH NO DATA",
+                "SELECT * FROM orders LIMIT 0",
+                "SELECT 0");
+
+        computeActual("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders"); // just check this doesn't fail
+        assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
+        assertUpdate("DROP TABLE analyze_test");
+    }
+
+    @Test
+    public void createTableWithUnicode()
+    {
+        assertCreateTableAsSelect(
+                "test_unicode",
+                "SELECT '\u2603' unicode",
+                "SELECT 1");
+    }
+
+    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+    {
+        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
+    }
+
+    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+    {
+        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
+    }
+
+    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
+    @Test
+    public void testDropTableIfExists()
+    {
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
+        assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
+    }
+
+    @Test
+    public void testDelete()
+    {
+        // delete half the table, then delete the rest
+
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertUpdate("DELETE FROM test_delete WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE orderkey % 2 <> 0");
+
+        assertUpdate("DELETE FROM test_delete", "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders LIMIT 0");
+
+        assertUpdate("DROP TABLE test_delete");
+
+        // delete successive parts of the table
+
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertUpdate("DELETE FROM test_delete WHERE custkey <= 100", "SELECT count(*) FROM orders WHERE custkey <= 100");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 100");
+
+        assertUpdate("DELETE FROM test_delete WHERE custkey <= 300", "SELECT count(*) FROM orders WHERE custkey > 100 AND custkey <= 300");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 300");
+
+        assertUpdate("DELETE FROM test_delete WHERE custkey <= 500", "SELECT count(*) FROM orders WHERE custkey > 300 AND custkey <= 500");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 500");
+
+        assertUpdate("DROP TABLE test_delete");
+
+        // delete using a constant property
+
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertUpdate("DELETE FROM test_delete WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE orderstatus <> 'O'");
+
+        assertUpdate("DROP TABLE test_delete");
+
+        // delete without matching any rows
+
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("DELETE FROM test_delete WHERE rand() < 0", 0);
+        assertUpdate("DELETE FROM test_delete WHERE orderkey < 0", 0);
+        assertUpdate("DROP TABLE test_delete");
+
+        // delete with a predicate that optimizes to false
+
+        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("DELETE FROM test_delete WHERE orderkey > 5 AND orderkey < 4", 0);
+        assertUpdate("DROP TABLE test_delete");
     }
 }
