@@ -19,6 +19,7 @@ import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFE
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
 import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
+import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE_AND_NO_BASELINE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +53,7 @@ public class MetricComparison
         requireNonNull(metricComparisonStrategy, "metricComparisonStrategy is null");
 
         if (!estimatedValue.isPresent() && !actualValue.isPresent()) {
-            return MATCH;
+            return NO_ESTIMATE_AND_NO_BASELINE;
         }
         if (!estimatedValue.isPresent()) {
             return NO_ESTIMATE;
@@ -73,6 +74,7 @@ public class MetricComparison
 
     public enum Result
     {
+        NO_ESTIMATE_AND_NO_BASELINE,
         NO_ESTIMATE,
         NO_BASELINE,
         DIFFER,
