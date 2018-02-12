@@ -34,9 +34,10 @@ public final class MetricComparisonStrategies
     {
         checkArgument(minError <= maxError, "minError '%s' has to be lower or equal than maxError '%s'", minError, maxError);
         return (actual, estimate) -> {
-            double minEstimateValue = actual + minError;
-            double maxEstimateValue = actual + maxError;
-            return estimate >= minEstimateValue && estimate <= maxEstimateValue;
+            checkArgument(actual.isPresent() && estimate.isPresent(), "Expected actual and estimate to be provided");
+            double minEstimateValue = actual.getAsDouble() + minError;
+            double maxEstimateValue = actual.getAsDouble() + maxError;
+            return estimate.getAsDouble() >= minEstimateValue && estimate.getAsDouble() <= maxEstimateValue;
         };
     }
 
@@ -54,9 +55,10 @@ public final class MetricComparisonStrategies
     {
         checkArgument(minError <= maxError, "minError '%s' has to be lower or equal than maxError '%s'", minError, maxError);
         return (actual, estimate) -> {
-            double minEstimateValue = actual * (minError + 1);
-            double maxEstimateValue = actual * (maxError + 1);
-            return estimate >= minEstimateValue && estimate <= maxEstimateValue;
+            checkArgument(actual.isPresent() && estimate.isPresent(), "Expected actual and estimate to be provided");
+            double minEstimateValue = actual.getAsDouble() * (minError + 1);
+            double maxEstimateValue = actual.getAsDouble() * (maxError + 1);
+            return estimate.getAsDouble() >= minEstimateValue && estimate.getAsDouble() <= maxEstimateValue;
         };
     }
 }

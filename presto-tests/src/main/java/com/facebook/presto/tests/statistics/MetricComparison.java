@@ -61,7 +61,7 @@ public class MetricComparison
         if (!actualValue.isPresent()) {
             return NO_BASELINE;
         }
-        return metricComparisonStrategy.matches(actualValue.getAsDouble(), estimatedValue.getAsDouble()) ? MATCH : DIFFER;
+        return metricComparisonStrategy.matches(actualValue, estimatedValue) ? MATCH : DIFFER;
     }
 
     private String print(OptionalDouble value)
