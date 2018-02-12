@@ -48,4 +48,22 @@ public class TestKafkaIntegrationSmokeTest
     {
         embeddedKafka.close();
     }
+
+    @Override
+    public void testCreateTable()
+    {
+        // this connector does not support creating tables
+    }
+
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        // this connector does not support creating tables
+    }
+
+    @Override
+    public void createTableWithUnicode()
+    {
+        // this connector does not support creating tables
+    }
 }

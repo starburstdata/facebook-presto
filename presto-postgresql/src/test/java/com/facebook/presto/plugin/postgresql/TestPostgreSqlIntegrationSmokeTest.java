@@ -57,6 +57,12 @@ public class TestPostgreSqlIntegrationSmokeTest
         postgreSqlServer.close();
     }
 
+    @Override
+    public void testCreateTable()
+    {
+        // this connector does not support creating tables (only CREATE TABLE AS SELECT is supported)
+    }
+
     @Test
     public void testDropTable()
     {

@@ -87,12 +87,6 @@ public class TestCassandraDistributed
     }
 
     @Override
-    public void testCreateTable()
-    {
-        // Cassandra connector currently does not support create table
-    }
-
-    @Override
     public void testCreateTableAsSelect()
     {
         // Cassandra connector currently does not support create table

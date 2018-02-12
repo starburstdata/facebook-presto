@@ -130,55 +130,9 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testCreateTable()
-    {
-        assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
-        assertTableColumnNames("test_create", "a", "b", "c");
-
-        assertUpdate("DROP TABLE test_create");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
-
-        assertUpdate("CREATE TABLE test_create_table_if_not_exists (a bigint, b varchar, c double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
-        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
-
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_if_not_exists (d bigint, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
-        assertTableColumnNames("test_create_table_if_not_exists", "a", "b", "c");
-
-        assertUpdate("DROP TABLE test_create_table_if_not_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exists"));
-
-        // Test CREATE TABLE LIKE
-        assertUpdate("CREATE TABLE test_create_original (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_original"));
-        assertTableColumnNames("test_create_original", "a", "b", "c");
-
-        assertUpdate("CREATE TABLE test_create_like (LIKE test_create_original, d boolean, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_like"));
-        assertTableColumnNames("test_create_like", "a", "b", "c", "d", "e");
-
-        assertUpdate("DROP TABLE test_create_original");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_original"));
-
-        assertUpdate("DROP TABLE test_create_like");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_like"));
-    }
-
-    @Test
     public void testCreateTableAsSelect()
     {
-        assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
-        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
-
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_as_if_not_exists AS SELECT orderkey, discount FROM lineitem", 0);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
-        assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
-
-        assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_as_if_not_exists"));
+        // Simple test cases, covering CTAS support in a connector, go to AbstractTestIntegrationSmokeTest
 
         assertCreateTableAsSelect(
                 "test_select",
@@ -200,25 +154,7 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
 
-        assertCreateTableAsSelect(
-                "test_unicode",
-                "SELECT '\u2603' unicode",
-                "SELECT 1");
-
-        assertCreateTableAsSelect(
-                "test_with_data",
-                "SELECT * FROM orders WITH DATA",
-                "SELECT * FROM orders",
-                "SELECT count(*) FROM orders");
-
-        assertCreateTableAsSelect(
-                "test_with_no_data",
-                "SELECT * FROM orders WITH NO DATA",
-                "SELECT * FROM orders LIMIT 0",
-                "SELECT 0");
-
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
-
         assertCreateTableAsSelect(
                 "test_union_all",
                 "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
@@ -243,10 +179,25 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT count(*) + 1 FROM orders");
+    }
 
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE analyze_test AS SELECT orderstatus FROM orders");
-        assertQuery("SELECT * from analyze_test", "SELECT orderstatus FROM orders");
-        assertUpdate("DROP TABLE analyze_test");
+    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+    {
+        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
+    }
+
+    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+    {
+        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
+    }
+
+    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(getQueryRunner().tableExists(session, table));
     }
 
     @Test
@@ -303,25 +254,6 @@ public abstract class AbstractTestDistributedQueries
 
         // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
         // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
-        assertUpdate(session, "DROP TABLE " + table);
-
-        assertFalse(getQueryRunner().tableExists(session, table));
     }
 
     @Test
@@ -578,14 +510,6 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM analyze_test WHERE TRUE");
         assertQuery("SELECT COUNT(*) from analyze_test", "SELECT 0");
         assertUpdate("DROP TABLE analyze_test");
-    }
-
-    @Test
-    public void testDropTableIfExists()
-    {
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
-        assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
     }
 
     @Test
