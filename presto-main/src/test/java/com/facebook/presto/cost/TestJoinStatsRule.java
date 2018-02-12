@@ -86,7 +86,6 @@ public class TestJoinStatsRule
 
     @Test
     public void testStatsForInnerJoin()
-            throws Exception
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS;
         PlanNodeStatsEstimate innerJoinStats = planNodeStats(innerJoinRowCount,
@@ -99,7 +98,6 @@ public class TestJoinStatsRule
 
     @Test
     public void testStatsForInnerJoinWithRepeatedClause()
-            throws Exception
     {
         double innerJoinRowCount = LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_NDV * LEFT_JOIN_COLUMN_NON_NULLS * RIGHT_JOIN_COLUMN_NON_NULLS // driver join clause
                 * UNKNOWN_FILTER_COEFFICIENT; // auxiliary join clause
@@ -124,7 +122,6 @@ public class TestJoinStatsRule
 
     @Test
     public void testStatsForInnerJoinWithTwoEquiClauses()
-            throws Exception
     {
         double innerJoinRowCount =
                 LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_2_NDV * LEFT_JOIN_COLUMN_2_NON_NULLS * RIGHT_JOIN_COLUMN_2_NON_NULLS // driver join clause
@@ -151,7 +148,6 @@ public class TestJoinStatsRule
 
     @Test
     public void testStatsForInnerJoinWithTwoEquiClausesAndNonEqualityFunction()
-            throws Exception
     {
         double innerJoinRowCount =
                 LEFT_ROWS_COUNT * RIGHT_ROWS_COUNT / LEFT_JOIN_COLUMN_2_NDV * LEFT_JOIN_COLUMN_2_NON_NULLS * RIGHT_JOIN_COLUMN_2_NON_NULLS // driver join clause
