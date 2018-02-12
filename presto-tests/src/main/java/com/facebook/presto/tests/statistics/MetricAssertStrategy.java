@@ -16,7 +16,7 @@ package com.facebook.presto.tests.statistics;
 
 import java.util.OptionalDouble;
 
-public interface MetricComparisonStrategy
+public interface MetricAssertStrategy
 {
-    boolean matches(OptionalDouble actual, OptionalDouble estimate);
+    void matches(OptionalDouble actual, OptionalDouble estimate);
 }

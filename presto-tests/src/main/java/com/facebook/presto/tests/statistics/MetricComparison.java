@@ -15,11 +15,6 @@ package com.facebook.presto.tests.statistics;
 
 import java.util.OptionalDouble;
 
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.DIFFER;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.MATCH;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_BASELINE;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE;
-import static com.facebook.presto.tests.statistics.MetricComparison.Result.NO_ESTIMATE_AND_NO_BASELINE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -43,20 +38,10 @@ public class MetricComparison
                 metric, print(estimatedValue), print(actualValue));
     }
 
-    public Result result(MetricComparisonStrategy metricComparisonStrategy)
+    public void matches(MetricAssertStrategy metricAssertStrategy)
     {
-        requireNonNull(metricComparisonStrategy, "metricComparisonStrategy is null");
-
-        if (!estimatedValue.isPresent() && !actualValue.isPresent()) {
-            return NO_ESTIMATE_AND_NO_BASELINE;
-        }
-        if (!estimatedValue.isPresent()) {
-            return NO_ESTIMATE;
-        }
-        if (!actualValue.isPresent()) {
-            return NO_BASELINE;
-        }
-        return metricComparisonStrategy.matches(actualValue, estimatedValue) ? MATCH : DIFFER;
+        requireNonNull(metricAssertStrategy, "metricComparisonStrategy is null");
+        metricAssertStrategy.matches(actualValue, estimatedValue);
     }
 
     private String print(OptionalDouble value)
@@ -65,14 +50,5 @@ public class MetricComparison
             return "UNKNOWN";
         }
         return String.valueOf(value.getAsDouble());
-    }
-
-    public enum Result
-    {
-        NO_ESTIMATE_AND_NO_BASELINE,
-        NO_ESTIMATE,
-        NO_BASELINE,
-        DIFFER,
-        MATCH
     }
 }
