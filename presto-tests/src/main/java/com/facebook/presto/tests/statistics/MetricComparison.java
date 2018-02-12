@@ -36,11 +36,6 @@ public class MetricComparison
         this.actualValue = actualValue;
     }
 
-    public Metric getMetric()
-    {
-        return metric;
-    }
-
     @Override
     public String toString()
     {
