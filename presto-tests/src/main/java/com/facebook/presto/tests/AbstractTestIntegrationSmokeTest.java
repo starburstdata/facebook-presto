@@ -224,6 +224,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         }
     }
 
+    // This also tests DROP TABLE
     @Test
     public void testCreateTable()
     {
@@ -261,6 +262,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertFalse(getQueryRunner().tableExists(getSession(), "test_create_like"));
     }
 
+    // This also tests DROP TABLE
     @Test
     public void testCreateTableAsSelect()
     {
