@@ -24,7 +24,7 @@ import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static java.lang.Double.NaN;
 
 public class TestValuesNodeStats
-    extends BaseStatsCalculatorTest
+        extends BaseStatsCalculatorTest
 {
     @Test
     public void testStatsForValuesNode()

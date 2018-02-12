@@ -25,7 +25,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
-    extends BaseStatsCalculatorTest
+        extends BaseStatsCalculatorTest
 {
     private SymbolStatsEstimate aStats = SymbolStatsEstimate.builder()
             .setLowValue(0)

@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public class TestIntersectStatsRule
-    extends BaseStatsCalculatorTest
+        extends BaseStatsCalculatorTest
 {
     @Test
     public void testIntersectWhenRangesAreOverlapping()

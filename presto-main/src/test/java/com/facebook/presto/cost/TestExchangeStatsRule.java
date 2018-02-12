@@ -22,7 +22,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.Collections.emptyList;
 
 public class TestExchangeStatsRule
-    extends BaseStatsCalculatorTest
+        extends BaseStatsCalculatorTest
 {
     @Test
     public void testExchange()

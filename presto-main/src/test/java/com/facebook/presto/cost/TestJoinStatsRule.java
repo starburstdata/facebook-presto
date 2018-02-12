@@ -21,7 +21,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -38,7 +37,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.lang.Double.NaN;
 
 public class TestJoinStatsRule
-    extends BaseStatsCalculatorTest
+        extends BaseStatsCalculatorTest
 {
     private static final String LEFT_JOIN_COLUMN = "left_join_column";
     private static final String LEFT_JOIN_COLUMN_2 = "left_join_column_2";

@@ -24,7 +24,7 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestUnionStatsRule
-    extends BaseStatsCalculatorTest
+        extends BaseStatsCalculatorTest
 {
     @Test
     public void testUnion()
