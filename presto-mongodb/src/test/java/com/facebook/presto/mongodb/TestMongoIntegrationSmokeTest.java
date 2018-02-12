@@ -102,6 +102,12 @@ public class TestMongoIntegrationSmokeTest
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
     }
 
+    @Override
+    public void testDelete()
+    {
+        // this connector does not support DELETE
+    }
+
     @Test
     public void testInsertWithEveryType()
             throws Exception

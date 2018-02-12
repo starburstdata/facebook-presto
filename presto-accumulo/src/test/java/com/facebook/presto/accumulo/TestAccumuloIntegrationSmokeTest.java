@@ -87,4 +87,10 @@ public class TestAccumuloIntegrationSmokeTest
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
     }
+
+    @Override
+    public void testDelete()
+    {
+        // this connector does not support DELETE
+    }
 }

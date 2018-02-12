@@ -57,4 +57,10 @@ public class TestThriftIntegrationSmokeTest
     {
         // this connector does not support creating tables
     }
+
+    @Override
+    public void testDelete()
+    {
+        //  this connector does not support creating tables and this is required by testDelete
+    }
 }

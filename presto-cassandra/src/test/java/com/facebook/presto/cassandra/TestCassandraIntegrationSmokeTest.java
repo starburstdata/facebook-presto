@@ -102,6 +102,12 @@ public class TestCassandraIntegrationSmokeTest
         // this connector does not support creating tables (only CREATE TABLE AS SELECT is supported)
     }
 
+    @Override
+    public void testDelete()
+    {
+        // this connector does not support DELETE
+    }
+
     @Test
     public void testPartitionKeyPredicate()
     {

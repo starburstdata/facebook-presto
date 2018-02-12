@@ -395,54 +395,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDelete()
     {
-        // delete half the table, then delete the rest
-
-        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-
-        assertUpdate("DELETE FROM test_delete WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
-        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE orderkey % 2 <> 0");
-
-        assertUpdate("DELETE FROM test_delete", "SELECT count(*) FROM orders WHERE orderkey % 2 <> 0");
-        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders LIMIT 0");
-
-        assertUpdate("DROP TABLE test_delete");
-
-        // delete successive parts of the table
-
-        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-
-        assertUpdate("DELETE FROM test_delete WHERE custkey <= 100", "SELECT count(*) FROM orders WHERE custkey <= 100");
-        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 100");
-
-        assertUpdate("DELETE FROM test_delete WHERE custkey <= 300", "SELECT count(*) FROM orders WHERE custkey > 100 AND custkey <= 300");
-        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 300");
-
-        assertUpdate("DELETE FROM test_delete WHERE custkey <= 500", "SELECT count(*) FROM orders WHERE custkey > 300 AND custkey <= 500");
-        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE custkey > 500");
-
-        assertUpdate("DROP TABLE test_delete");
-
-        // delete using a constant property
-
-        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-
-        assertUpdate("DELETE FROM test_delete WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
-        assertQuery("SELECT * FROM test_delete", "SELECT * FROM orders WHERE orderstatus <> 'O'");
-
-        assertUpdate("DROP TABLE test_delete");
-
-        // delete without matching any rows
-
-        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertUpdate("DELETE FROM test_delete WHERE rand() < 0", 0);
-        assertUpdate("DELETE FROM test_delete WHERE orderkey < 0", 0);
-        assertUpdate("DROP TABLE test_delete");
-
-        // delete with a predicate that optimizes to false
-
-        assertUpdate("CREATE TABLE test_delete AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertUpdate("DELETE FROM test_delete WHERE orderkey > 5 AND orderkey < 4", 0);
-        assertUpdate("DROP TABLE test_delete");
+        // Simple test cases, covering DELETE support in a connector, go to AbstractTestIntegrationSmokeTest
 
         // delete using a subquery
 
