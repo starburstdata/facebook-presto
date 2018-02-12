@@ -17,8 +17,6 @@ package com.facebook.presto.cost;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -26,22 +24,8 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestUnionStatsRule
+    extends BaseStatsCalculatorTest
 {
-    private StatsCalculatorTester tester;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        tester = new StatsCalculatorTester();
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-        tester.close();
-        tester = null;
-    }
-
     @Test
     public void testUnion()
     {
@@ -52,7 +36,7 @@ public class TestUnionStatsRule
         // i14, i24 have the same stats
         // i15, i25 one has stats, other contains only nulls
 
-        tester.assertStatsFor(pb -> pb
+        assertStats(pb -> pb
                 .union(
                         ImmutableListMultimap.<Symbol, Symbol>builder()
                                 .putAll(pb.symbol("o1", BIGINT), pb.symbol("i11", BIGINT), pb.symbol("i21", BIGINT))

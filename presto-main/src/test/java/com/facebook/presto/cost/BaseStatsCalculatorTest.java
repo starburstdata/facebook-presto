@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+
+import java.util.function.Function;
 
 public abstract class BaseStatsCalculatorTest
 {
@@ -31,6 +35,11 @@ public abstract class BaseStatsCalculatorTest
     {
         tester.close();
         tester = null;
+    }
+
+    protected StatsCalculatorAssertion assertStats(Function<PlanBuilder, PlanNode> planProvider)
+    {
+        return tester().assertStatsFor(planProvider);
     }
 
     protected StatsCalculatorTester tester()

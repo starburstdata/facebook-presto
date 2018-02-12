@@ -14,8 +14,6 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.Symbol;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -24,22 +22,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class TestSemiJoinStatsRule
+    extends BaseStatsCalculatorTest
 {
-    private StatsCalculatorTester tester;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        tester = new StatsCalculatorTester();
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-        tester.close();
-        tester = null;
-    }
-
     @Test
     public void testSemiJoinPropagatesSourceStats()
     {
@@ -50,7 +34,7 @@ public class TestSemiJoinStatsRule
                 .setNullsFraction(0.3)
                 .build();
 
-        tester.assertStatsFor(pb -> {
+        assertStats(pb -> {
             Symbol a = pb.symbol("a", BIGINT);
             Symbol b = pb.symbol("b", BIGINT);
             Symbol c = pb.symbol("c", BIGINT);
