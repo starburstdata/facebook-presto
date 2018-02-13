@@ -38,7 +38,7 @@ public interface CostCalculator
      * Calculates non-cumulative cost of a node.
      *
      * @param node The node to compute cost for.
-     * @param stats The stats provider for node' stats and child nodes' stats, to be used if stats are needed to compute cost for the {@code node}
+     * @param stats The stats provider for node's stats and child nodes' stats, to be used if stats are needed to compute cost for the {@code node}
      * @param lookup Lookup to be used when resolving source nodes, allowing cost calculation to work within {@link IterativeOptimizer}
      */
     PlanNodeCostEstimate calculateCost(
