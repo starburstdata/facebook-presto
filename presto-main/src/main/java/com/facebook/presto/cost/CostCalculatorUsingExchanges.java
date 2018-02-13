@@ -123,11 +123,7 @@ public class CostCalculatorUsingExchanges
         {
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
-            return PlanNodeCostEstimate.builder()
-                    .setCpuCost(sourceStats.getOutputSizeInBytes())
-                    .setMemoryCost(aggregationStats.getOutputSizeInBytes())
-                    .setNetworkCost(0)
-                    .build();
+            return new PlanNodeCostEstimate(sourceStats.getOutputSizeInBytes(), aggregationStats.getOutputSizeInBytes(), 0);
         }
 
         @Override
@@ -160,11 +156,7 @@ public class CostCalculatorUsingExchanges
 
             double memoryCost = buildStats.getOutputSizeInBytes() * numberOfNodesMultiplier;
 
-            return PlanNodeCostEstimate.builder()
-                    .setCpuCost(cpuCost)
-                    .setMemoryCost(memoryCost)
-                    .setNetworkCost(0)
-                    .build();
+            return new PlanNodeCostEstimate(cpuCost, memoryCost, 0);
         }
 
         @Override
@@ -237,10 +229,6 @@ public class CostCalculatorUsingExchanges
             network = 0;
         }
 
-        return PlanNodeCostEstimate.builder()
-                .setNetworkCost(network)
-                .setCpuCost(cpu)
-                .setMemoryCost(0)
-                .build();
+        return new PlanNodeCostEstimate(cpu, 0, network);
     }
 }

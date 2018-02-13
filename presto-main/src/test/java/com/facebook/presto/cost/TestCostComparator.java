@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -77,10 +78,11 @@ public class TestCostComparator
 
     private static class CostComparisonAssertion
     {
-        private final PlanNodeCostEstimate.Builder smaller = PlanNodeCostEstimate.builder();
-        private final PlanNodeCostEstimate.Builder larger = PlanNodeCostEstimate.builder();
         private final CostComparator costComparator;
-        private Session session = testSessionBuilder().build();
+        private final Session session = testSessionBuilder().build();
+
+        private PlanNodeCostEstimate smaller;
+        private PlanNodeCostEstimate larger;
 
         public CostComparisonAssertion(double cpuWeight, double memoryWeight, double networkWeight)
         {
@@ -89,22 +91,23 @@ public class TestCostComparator
 
         public void assertCompare()
         {
-            assertTrue(costComparator.compare(session, smaller.build(), larger.build()) < 0,
-                    "smaller < larger is false");
-
-            assertTrue(costComparator.compare(session, larger.build(), smaller.build()) > 0,
-                    "larger > smaller is false");
+            checkState(smaller != null, "smaller not set");
+            checkState(larger != null, "larger not set");
+            assertTrue(costComparator.compare(session, smaller, larger) < 0, "smaller < larger is false");
+            assertTrue(costComparator.compare(session, larger, smaller) > 0, "larger > smaller is false");
         }
 
         public CostComparisonAssertion smaller(double cpu, double memory, double network)
         {
-            smaller.setCpuCost(cpu).setMemoryCost(memory).setNetworkCost(network);
+            checkState(smaller == null, "already set");
+            smaller = new PlanNodeCostEstimate(cpu, memory, network);
             return this;
         }
 
         public CostComparisonAssertion larger(double cpu, double memory, double network)
         {
-            larger.setCpuCost(cpu).setMemoryCost(memory).setNetworkCost(network);
+            checkState(larger == null, "already set");
+            larger = new PlanNodeCostEstimate(cpu, memory, network);
             return this;
         }
     }
