@@ -39,9 +39,9 @@ public class CostComparator
     @VisibleForTesting
     public CostComparator(double cpuWeight, double memoryWeight, double networkWeight)
     {
-        checkArgument(cpuWeight >= 0, "cpuWeight can not be negative");
-        checkArgument(memoryWeight >= 0, "memoryWeight can not be negative");
-        checkArgument(networkWeight >= 0, "networkWeight can not be negative");
+        checkArgument(cpuWeight >= 0, "cpuWeight cannot be negative");
+        checkArgument(memoryWeight >= 0, "memoryWeight cannot be negative");
+        checkArgument(networkWeight >= 0, "networkWeight cannot be negative");
         this.cpuWeight = cpuWeight;
         this.memoryWeight = memoryWeight;
         this.networkWeight = networkWeight;
@@ -49,15 +49,17 @@ public class CostComparator
 
     public Comparator<PlanNodeCostEstimate> forSession(Session session)
     {
+        requireNonNull(session, "session is null");
         return (left, right) -> this.compare(session, left, right);
     }
 
     public int compare(Session session, PlanNodeCostEstimate left, PlanNodeCostEstimate right)
     {
-        requireNonNull(session, "session can not be null");
-        requireNonNull(left, "left can not be null");
-        requireNonNull(right, "right can not be null");
+        requireNonNull(session, "session is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
         checkArgument(!left.hasUnknownComponents() && !right.hasUnknownComponents(), "cannot compare unknown costs");
+
         double leftCost = left.getCpuCost() * cpuWeight
                 + left.getMemoryCost() * memoryWeight
                 + left.getNetworkCost() * networkWeight;
