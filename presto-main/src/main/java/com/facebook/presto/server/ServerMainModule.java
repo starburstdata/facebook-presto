@@ -25,6 +25,7 @@ import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.ComposableStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.EnforceSingleRowStatsRule;
@@ -150,7 +151,6 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import com.google.inject.name.Names;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
@@ -389,9 +389,7 @@ public class ServerMainModule
 
         // cost calculator
         binder.bind(CostCalculator.class).to(CostCalculatorUsingExchanges.class).in(Scopes.SINGLETON);
-        binder.bind(CostCalculator.class)
-                .annotatedWith(Names.named("estimatedExchangesCostCalculator"))
-                .to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
+        binder.bind(CostCalculator.class).annotatedWith(EstimatedExchanges.class).to(CostCalculatorWithEstimatedExchanges.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
