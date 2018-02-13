@@ -29,6 +29,21 @@ public class PlanNodeCostEstimate
     public static final PlanNodeCostEstimate UNKNOWN_COST = new PlanNodeCostEstimate(NaN, NaN, NaN);
     public static final PlanNodeCostEstimate ZERO_COST = new PlanNodeCostEstimate(0, 0, 0);
 
+    public static PlanNodeCostEstimate cpuCost(double cpuCost)
+    {
+        return builder().setCpuCost(cpuCost).setMemoryCost(0).setNetworkCost(0).build();
+    }
+
+    public static PlanNodeCostEstimate memoryCost(double memoryCost)
+    {
+        return builder().setCpuCost(0).setMemoryCost(memoryCost).setNetworkCost(0).build();
+    }
+
+    public static PlanNodeCostEstimate networkCost(double networkCost)
+    {
+        return builder().setCpuCost(0).setMemoryCost(0).setNetworkCost(networkCost).build();
+    }
+
     private final double cpuCost;
     private final double memoryCost;
     private final double networkCost;
@@ -112,21 +127,6 @@ public class PlanNodeCostEstimate
                 cpuCost + other.cpuCost,
                 memoryCost + other.memoryCost,
                 networkCost + other.networkCost);
-    }
-
-    public static PlanNodeCostEstimate networkCost(double networkCost)
-    {
-        return builder().setCpuCost(0).setMemoryCost(0).setNetworkCost(networkCost).build();
-    }
-
-    public static PlanNodeCostEstimate cpuCost(double cpuCost)
-    {
-        return builder().setCpuCost(cpuCost).setMemoryCost(0).setNetworkCost(0).build();
-    }
-
-    public static PlanNodeCostEstimate memoryCost(double memoryCost)
-    {
-        return builder().setCpuCost(0).setMemoryCost(memoryCost).setNetworkCost(0).build();
     }
 
     public static Builder builder()
