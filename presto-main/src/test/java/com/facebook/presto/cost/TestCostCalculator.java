@@ -57,7 +57,6 @@ import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -74,17 +73,12 @@ public class TestCostCalculator
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
 
-        assertCost(
-                tableScan,
-                ImmutableMap.of(),
-                ImmutableMap.of("ts", statsEstimate(1000)))
+        assertCost(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(1000)))
                 .cpu(1000)
                 .memory(0)
                 .network(0);
-        assertCostEstimatedExchanges(
-                tableScan,
-                ImmutableMap.of(),
-                ImmutableMap.of("ts", statsEstimate(1000)))
+
+        assertCostEstimatedExchanges(tableScan, ImmutableMap.of(), ImmutableMap.of("ts", statsEstimate(1000)))
                 .cpu(1000)
                 .memory(0)
                 .network(0);
@@ -99,18 +93,12 @@ public class TestCostCalculator
         Map<String, PlanNodeCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of("project", statsEstimate(4000), "ts", statsEstimate(1000));
 
-        assertCost(
-                project,
-                costs,
-                stats)
+        assertCost(project, costs, stats)
                 .cpu(1000 + 4000)
                 .memory(0)
                 .network(0);
 
-        assertCostEstimatedExchanges(
-                project,
-                costs,
-                stats)
+        assertCostEstimatedExchanges(project, costs, stats)
                 .cpu(1000 + 4000)
                 .memory(0)
                 .network(0);
@@ -137,17 +125,15 @@ public class TestCostCalculator
                 "ts1", statsEstimate(6000),
                 "ts2", statsEstimate(1000));
 
-        assertCost(
-                join,
-                costs,
-                stats)
-                .cpu(12000 + 6000 + 1000 + 6000 + 1000);
+        assertCost(join, costs, stats)
+                .cpu(12000 + 6000 + 1000 + 6000 + 1000)
+                .memory(1000)
+                .network(0);
 
-        assertCostEstimatedExchanges(
-                join,
-                costs,
-                stats)
-                .cpu(12000 + 6000 + 1000 + 6000 + 1000 + 6000 + 1000 + 1000);
+        assertCostEstimatedExchanges(join, costs, stats)
+                .cpu(12000 + 6000 + 1000 + 6000 + 1000 + 6000 + 1000 + 1000)
+                .memory(1000)
+                .network(6000 + 1000);
 
         assertCostHasUnknownComponentsForUnknownStats(join);
     }
@@ -171,16 +157,15 @@ public class TestCostCalculator
                 "ts1", statsEstimate(6000),
                 "ts2", statsEstimate(1000));
 
-        assertCost(
-                join,
-                costs,
-                stats)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * (NUMBER_OF_NODES - 1));
-        assertCostEstimatedExchanges(
-                join,
-                costs,
-                stats)
-                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * NUMBER_OF_NODES);
+        assertCost(join, costs, stats)
+                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * (NUMBER_OF_NODES - 1))
+                .memory(1000 * NUMBER_OF_NODES)
+                .network(0);
+
+        assertCostEstimatedExchanges(join, costs, stats)
+                .cpu(12000 + 6000 + 10000 + 6000 + 1000 + 1000 * NUMBER_OF_NODES)
+                .memory(1000 * NUMBER_OF_NODES)
+                .network(1000 * NUMBER_OF_NODES);
 
         assertCostHasUnknownComponentsForUnknownStats(join);
     }
@@ -194,12 +179,17 @@ public class TestCostCalculator
         Map<String, PlanNodeCostEstimate> costs = ImmutableMap.of("ts", cpuCost(6000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "ts", statsEstimate(6000),
-                "agg", statsEstimate(8));
+                "agg", statsEstimate(13));
 
         assertCost(aggregationNode, costs, stats)
-                .cpu(6000 + 6000);
+                .cpu(6000 + 6000)
+                .memory(13)
+                .network(0);
+
         assertCostEstimatedExchanges(aggregationNode, costs, stats)
-                .cpu(6000 + 6000 + 6000 + 6000);
+                .cpu(6000 + 6000 + 6000 + 6000)
+                .memory(13)
+                .network(6000);
 
         assertCostHasUnknownComponentsForUnknownStats(aggregationNode);
     }
@@ -278,51 +268,28 @@ public class TestCostCalculator
             this.actual = requireNonNull(actual, "actual is null");
         }
 
+        CostAssertionBuilder cpu(double value)
+        {
+            assertEquals(actual.getCpuCost(), value, 0.000001);
+            return this;
+        }
+
+        CostAssertionBuilder memory(double value)
+        {
+            assertEquals(actual.getMemoryCost(), value, 0.000001);
+            return this;
+        }
+
         CostAssertionBuilder network(double value)
         {
-            assertEquals(actual.getNetworkCost(), value, 0.1);
+            assertEquals(actual.getNetworkCost(), value, 0.000001);
             return this;
         }
 
-        public CostAssertionBuilder networkUnknown()
-        {
-            assertIsNaN(actual.getNetworkCost());
-            return this;
-        }
-
-        public CostAssertionBuilder cpu(double value)
-        {
-            assertEquals(actual.getCpuCost(), value, 0.1);
-            return this;
-        }
-
-        public CostAssertionBuilder cpuUnknown()
-        {
-            assertIsNaN(actual.getCpuCost());
-            return this;
-        }
-
-        public CostAssertionBuilder memory(double value)
-        {
-            assertEquals(actual.getMemoryCost(), value, 0.1);
-            return this;
-        }
-
-        public CostAssertionBuilder memoryUnknown()
-        {
-            assertIsNaN(actual.getMemoryCost());
-            return this;
-        }
-
-        public CostAssertionBuilder hasUnknownComponents()
+        CostAssertionBuilder hasUnknownComponents()
         {
             assertTrue(actual.hasUnknownComponents());
             return this;
-        }
-
-        private void assertIsNaN(double value)
-        {
-            assertTrue(isNaN(value), "Expected NaN got " + value);
         }
     }
 
@@ -365,11 +332,6 @@ public class TestCostCalculator
                 new PlanNodeId(id),
                 source,
                 Assignments.of(new Symbol(symbol), expression));
-    }
-
-    private String symbol(String name)
-    {
-        return name;
     }
 
     private AggregationNode aggregation(String id, PlanNode source)
