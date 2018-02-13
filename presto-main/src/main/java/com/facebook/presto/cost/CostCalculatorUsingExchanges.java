@@ -168,7 +168,8 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitTableScan(TableScanNode node, Void context)
         {
-            return cpuCost(getStats(node).getOutputSizeInBytes()); // TODO: add network cost, based on input size in bytes?
+            // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
+            return cpuCost(getStats(node).getOutputSizeInBytes());
         }
 
         @Override
