@@ -79,9 +79,9 @@ public class PlanNodeCostEstimate
     public String toString()
     {
         return toStringHelper(this)
-                .add("cpuCost", cpuCost)
-                .add("memoryCost", memoryCost)
-                .add("networkCost", networkCost)
+                .add("cpu", cpuCost)
+                .add("memory", memoryCost)
+                .add("network", networkCost)
                 .toString();
     }
 
