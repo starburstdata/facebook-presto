@@ -18,7 +18,7 @@ variables:
     join_distribution_type: REPARTITIONED, AUTOMATIC
 
   2:
-    query: q10, q12, q13, q15, q1, q20, q2, q3, q4
+    query: q1, q2, q3, q4, q10, q12, q13, q15, q20
     schema: ${tpch_1000}
     reorder_joins: true
     join_reordering_strategy: ELIMINATE_CROSS_JOINS, COST_BASED
