@@ -70,7 +70,7 @@ public class CostCalculatorUsingExchanges
     @Override
     public PlanNodeCostEstimate calculateCost(PlanNode node, StatsProvider stats, Lookup lookup, Session session, Map<Symbol, Type> types)
     {
-        CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats, lookup);
+        CostEstimator costEstimator = new CostEstimator(numberOfNodes.getAsInt(), stats);
         return node.accept(costEstimator, null);
     }
 
@@ -79,13 +79,11 @@ public class CostCalculatorUsingExchanges
     {
         private final int numberOfNodes;
         private final StatsProvider stats;
-        private final Lookup lookup;
 
-        CostEstimator(int numberOfNodes, StatsProvider stats, Lookup lookup)
+        CostEstimator(int numberOfNodes, StatsProvider stats)
         {
             this.numberOfNodes = numberOfNodes;
             this.stats = requireNonNull(stats, "stats is null");
-            this.lookup = requireNonNull(lookup, "lookup is null");
         }
 
         @Override
