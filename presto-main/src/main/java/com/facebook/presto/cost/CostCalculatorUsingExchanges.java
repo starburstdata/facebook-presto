@@ -107,6 +107,13 @@ public class CostCalculatorUsingExchanges
         }
 
         @Override
+        public PlanNodeCostEstimate visitTableScan(TableScanNode node, Void context)
+        {
+            // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
+            return cpuCost(getStats(node).getOutputSizeInBytes());
+        }
+
+        @Override
         public PlanNodeCostEstimate visitFilter(FilterNode node, Void context)
         {
             return cpuCost(getStats(node.getSource()).getOutputSizeInBytes());
@@ -168,10 +175,13 @@ public class CostCalculatorUsingExchanges
         }
 
         @Override
-        public PlanNodeCostEstimate visitTableScan(TableScanNode node, Void context)
+        public PlanNodeCostEstimate visitSemiJoin(SemiJoinNode node, Void context)
         {
-            // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
-            return cpuCost(getStats(node).getOutputSizeInBytes());
+            return calculateJoinCost(
+                    node,
+                    node.getSource(),
+                    node.getFilteringSource(),
+                    node.getDistributionType().orElse(SemiJoinNode.DistributionType.PARTITIONED).equals(SemiJoinNode.DistributionType.REPLICATED));
         }
 
         @Override
@@ -184,16 +194,6 @@ public class CostCalculatorUsingExchanges
         public PlanNodeCostEstimate visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
             return ZERO_COST;
-        }
-
-        @Override
-        public PlanNodeCostEstimate visitSemiJoin(SemiJoinNode node, Void context)
-        {
-            return calculateJoinCost(
-                    node,
-                    node.getSource(),
-                    node.getFilteringSource(),
-                    node.getDistributionType().orElse(SemiJoinNode.DistributionType.PARTITIONED).equals(SemiJoinNode.DistributionType.REPLICATED));
         }
 
         @Override
