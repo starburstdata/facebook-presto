@@ -38,6 +38,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.IntSupplier;
 
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
@@ -140,7 +142,7 @@ public class CostCalculatorUsingExchanges
                     node,
                     node.getLeft(),
                     node.getRight(),
-                    node.getDistributionType().orElse(JoinNode.DistributionType.PARTITIONED).equals(JoinNode.DistributionType.REPLICATED));
+                    Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)));
         }
 
         private PlanNodeCostEstimate calculateJoinCost(PlanNode join, PlanNode probe, PlanNode build, boolean replicated)

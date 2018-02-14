@@ -32,6 +32,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntSupplier;
 
@@ -136,7 +138,7 @@ public class CostCalculatorWithEstimatedExchanges
             return calculateJoinCost(
                     node.getLeft(),
                     node.getRight(),
-                    node.getDistributionType().orElse(JoinNode.DistributionType.PARTITIONED).equals(JoinNode.DistributionType.REPLICATED));
+                    Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)));
         }
 
         @Override
@@ -145,7 +147,7 @@ public class CostCalculatorWithEstimatedExchanges
             return calculateJoinCost(
                     node.getSource(),
                     node.getFilteringSource(),
-                    node.getDistributionType().orElse(SemiJoinNode.DistributionType.PARTITIONED).equals(SemiJoinNode.DistributionType.REPLICATED));
+                    Objects.equals(node.getDistributionType(), Optional.of(SemiJoinNode.DistributionType.REPLICATED)));
         }
 
         private PlanNodeCostEstimate calculateJoinCost(PlanNode probe, PlanNode build, boolean replicated)
