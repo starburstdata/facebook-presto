@@ -28,7 +28,6 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -351,11 +350,6 @@ public class TestCostCalculator
                 Optional.empty());
     }
 
-    private JoinNode join(String planNodeId, PlanNode left, PlanNode right, String... symbols)
-    {
-        return join(planNodeId, left, right, JoinNode.DistributionType.PARTITIONED, symbols);
-    }
-
     /**
      * EquiJoinClause is created from symbols in form of:
      * symbol[0] = symbol[1] AND symbol[2] = symbol[3] AND ...
@@ -383,15 +377,5 @@ public class TestCostCalculator
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(distributionType));
-    }
-
-    private ValuesNode values(int planNodeId, String... symbols)
-    {
-        return new ValuesNode(
-                new PlanNodeId(Integer.toString(planNodeId)),
-                Arrays.stream(symbols)
-                        .map(Symbol::new)
-                        .collect(toImmutableList()),
-                ImmutableList.of());
     }
 }
