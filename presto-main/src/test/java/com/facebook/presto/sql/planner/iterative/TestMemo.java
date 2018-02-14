@@ -220,13 +220,13 @@ public class TestMemo
         memo.storeStats(yGroup, yStats);
         memo.storeStats(xGroup, xStats);
 
-        assertEquals(Optional.of(yStats), memo.getStats(yGroup));
-        assertEquals(Optional.of(xStats), memo.getStats(xGroup));
+        assertEquals(memo.getStats(yGroup), Optional.of(yStats));
+        assertEquals(memo.getStats(xGroup), Optional.of(xStats));
 
         memo.replace(yGroup, node(), "rule");
 
-        assertEquals(Optional.empty(), memo.getStats(yGroup));
-        assertEquals(Optional.empty(), memo.getStats(xGroup));
+        assertEquals(memo.getStats(yGroup), Optional.empty());
+        assertEquals(memo.getStats(xGroup), Optional.empty());
     }
 
     @Test
