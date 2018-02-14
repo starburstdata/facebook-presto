@@ -123,7 +123,9 @@ public class CostCalculatorUsingExchanges
         {
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
-            return new PlanNodeCostEstimate(sourceStats.getOutputSizeInBytes(), aggregationStats.getOutputSizeInBytes(), 0);
+            double cpuCost = sourceStats.getOutputSizeInBytes();
+            double memoryCost = aggregationStats.getOutputSizeInBytes();
+            return new PlanNodeCostEstimate(cpuCost, memoryCost, 0);
         }
 
         @Override
