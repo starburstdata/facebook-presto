@@ -130,18 +130,18 @@ public class Memo
         incrementReferenceCounts(node, group);
         getGroup(group).membership = node;
         decrementReferenceCounts(old, group);
-        evictStatistics(group); // this also evicts cost
+        evictStatisticsAndCost(group);
 
         return node;
     }
 
-    private void evictStatistics(int group)
+    private void evictStatisticsAndCost(int group)
     {
         getGroup(group).stats = null;
-        getGroup(group).cumulativeCost = null; // cost is derived from stats
+        getGroup(group).cumulativeCost = null;
         for (int parentGroup : getGroup(group).incomingReferences.elementSet()) {
             if (parentGroup != ROOT_GROUP_REF) {
-                evictStatistics(parentGroup);
+                evictStatisticsAndCost(parentGroup);
             }
         }
     }
@@ -155,7 +155,7 @@ public class Memo
     {
         Group group = getGroup(groupId);
         if (group.stats != null) {
-            evictStatistics(groupId);
+            evictStatisticsAndCost(groupId); // cost is derived from stats, also needs eviction
         }
         group.stats = requireNonNull(stats, "stats is null");
     }
