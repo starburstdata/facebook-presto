@@ -199,6 +199,10 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitLimit(LimitNode node, Void context)
         {
+            // This is just a wild guess. First of all, LimitNode is rather rare except as a top node of a query plan,
+            // so proper cost estimation is not that important. Second, since LimitNode can lead to incomplete evaluation
+            // of the source, true cost estimation should be implemented as a "constraint" enforced on a sub-tree and
+            // evaluated in context of actual source node type (and their sources).
             return cpuCost(getStats(node).getOutputSizeInBytes());
         }
 
