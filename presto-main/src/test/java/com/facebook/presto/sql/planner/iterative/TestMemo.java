@@ -244,13 +244,13 @@ public class TestMemo
         memo.storeCumulativeCost(yGroup, yCost);
         memo.storeCumulativeCost(xGroup, xCost);
 
-        assertEquals(Optional.of(yCost), memo.getCumulativeCost(yGroup));
-        assertEquals(Optional.of(xCost), memo.getCumulativeCost(xGroup));
+        assertEquals(memo.getCumulativeCost(yGroup), Optional.of(yCost));
+        assertEquals(memo.getCumulativeCost(xGroup), Optional.of(xCost));
 
         memo.replace(yGroup, node(), "rule");
 
-        assertEquals(Optional.empty(), memo.getCumulativeCost(yGroup));
-        assertEquals(Optional.empty(), memo.getCumulativeCost(xGroup));
+        assertEquals(memo.getCumulativeCost(yGroup), Optional.empty());
+        assertEquals(memo.getCumulativeCost(xGroup), Optional.empty());
     }
 
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)
