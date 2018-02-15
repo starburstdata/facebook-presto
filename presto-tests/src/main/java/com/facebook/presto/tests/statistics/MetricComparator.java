@@ -14,8 +14,10 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.Symbol;
@@ -28,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
@@ -76,13 +79,10 @@ final class MetricComparator
 
     private static PlanNodeStatsEstimate calculateStats(PlanNode node, StatsCalculator statsCalculator, Session session, Map<Symbol, Type> types)
     {
-        // We calculate stats one-off, so caching is not necessary
-        return statsCalculator.calculateStats(
-                node,
-                source -> calculateStats(source, statsCalculator, session, types),
-                noLookup(),
-                session,
-                types);
+        // Even we calculate stats one-off and caching is not necessary, it is useful for debugging purposes
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.empty(), noLookup(), session, () -> types);
+        PlanNodeStatsEstimate stats = statsProvider.getStats(node);
+        return stats;
     }
 
     private static StatsContext buildStatsContext(Plan queryPlan, OutputNode outputNode)
