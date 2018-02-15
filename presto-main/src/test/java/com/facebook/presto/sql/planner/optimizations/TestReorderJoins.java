@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -64,7 +65,7 @@ public class TestReorderJoins
                         "WHERE p.size = 15 AND p.type like '%BRASS' AND s.suppkey = ps.suppkey AND p.partkey = ps.partkey " +
                         "AND s.nationkey = n.nationkey AND n.regionkey = r.regionkey AND r.name = 'EUROPE'",
                 new Join(
-                        REPLICATED,
+                        PARTITIONED,
                         new Join(
                                 REPLICATED,
                                 tableScan("partsupp"),
@@ -162,6 +163,7 @@ public class TestReorderJoins
                         new Join(
                                 tableScan("lineitem"),
                                 new Join(
+                                        PARTITIONED,
                                         tableScan("orders"),
                                         new Join(
                                                 tableScan("customer"),
@@ -201,6 +203,7 @@ public class TestReorderJoins
                         ") " +
                         "AND l.shipdate BETWEEN DATE '1995-01-01' AND DATE '1996-12-31'",
                 new Join(
+                        PARTITIONED,
                         new Join(
                                 tableScan("lineitem"),
                                 new Join(
@@ -244,15 +247,15 @@ public class TestReorderJoins
                 new Join(
                         new Join(
                                 new Join(
-                                        tableScan("orders"),
+                                        tableScan("lineitem"),
                                         new Join(
-                                                tableScan("lineitem"),
-                                                tableScan("part"))),
-                                new Join(
-                                        tableScan("customer"),
-                                        new Join(
-                                                tableScan("nation"),
-                                                tableScan("region")))),
+                                                tableScan("orders"),
+                                                new Join(
+                                                        tableScan("customer"),
+                                                        new Join(
+                                                                tableScan("nation"),
+                                                                tableScan("region"))))),
+                                tableScan("part")),
                         new Join(
                                 tableScan("supplier"),
                                 tableScan("nation"))));
@@ -282,7 +285,9 @@ public class TestReorderJoins
                         "AND s.nationkey = n.nationkey " +
                         "AND p.name LIKE '%green%'",
                 new Join(
+                        PARTITIONED,
                         new Join(
+                                PARTITIONED,
                                 tableScan("lineitem"),
                                 tableScan("orders")),
                         new Join(
@@ -329,6 +334,7 @@ public class TestReorderJoins
                         "c.comment ",
                         new Join(
                                 new Join(
+                                        PARTITIONED,
                                         tableScan("customer"),
                                         new Join(
                                                 tableScan("lineitem"),
@@ -411,6 +417,7 @@ public class TestReorderJoins
                         "GROUP BY " +
                         "l.shipmode",
                 new Join(
+                        PARTITIONED,
                         tableScan("orders"),
                         tableScan("lineitem")));
     }
@@ -426,7 +433,7 @@ public class TestReorderJoins
                         "FROM lineitem l, part p " +
                         "WHERE l.partkey = p.partkey AND l.shipdate >= DATE '1995-09-01' AND l.shipdate < DATE '1995-09-01' + INTERVAL '1' MONTH",
                 new Join(
-                        REPLICATED, //TODO it should be PARTITIONED
+                        PARTITIONED,
                         tableScan("part"),
                         tableScan("lineitem")));
     }
@@ -461,6 +468,7 @@ public class TestReorderJoins
                         "s.suppkey = supplier_no  " +
                         "AND total_revenue = (SELECT max(total_revenue) FROM revenue0)",
                 new Join(
+                        PARTITIONED,
                         tableScan("supplier"),
                         new Join(
                                 tableScan("lineitem"),
@@ -572,6 +580,7 @@ public class TestReorderJoins
                         "o.totalprice",
                 new SemiJoin(
                         new Join(
+                                PARTITIONED,
                                 tableScan("lineitem"),
                                 new Join(
                                         tableScan("orders"),
@@ -618,6 +627,7 @@ public class TestReorderJoins
                                 "AND l.shipinstruct = 'DELIVER IN PERSON' " +
                                 "))",
                         new Join(
+                                PARTITIONED,
                                 tableScan("lineitem"),
                                 tableScan("part")));
     }

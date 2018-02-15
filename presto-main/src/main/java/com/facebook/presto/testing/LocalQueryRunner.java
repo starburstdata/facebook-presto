@@ -290,10 +290,11 @@ public class LocalQueryRunner
         this(defaultSession, featuresConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory, 1);
     }
 
-    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, int nodeCountForStats)
+    private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, int nodesCountForCostEstimation)
     {
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
+        checkArgument(nodesCountForCostEstimation > 0, "Expected nodes count to be greater than 0");
 
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
@@ -335,8 +336,8 @@ public class LocalQueryRunner
         this.statsCalculator = new SelectingStatsCalculator(
                 new CoefficientBasedStatsCalculator(metadata),
                 ServerMainModule.createNewStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new SemiJoinStatsCalculator()));
-        this.costCalculator = new CostCalculatorUsingExchanges(this::getNodeCount);
-        this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, () -> nodeCountForStats);
+        this.costCalculator = new CostCalculatorUsingExchanges(() -> nodesCountForCostEstimation);
+        this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, () -> nodesCountForCostEstimation);
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.pageSourceManager = new PageSourceManager();
 
@@ -425,9 +426,9 @@ public class LocalQueryRunner
         return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), true, false);
     }
 
-    public static LocalQueryRunner queryRunnerWithFakeNodeCountForStats(Session defaultSession, int nodeCount)
+    public static LocalQueryRunner queryRunnerWithFakeNodeCountForStats(Session defaultSession, int nodeCountForStats)
     {
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false, nodeCount);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new NodeSpillConfig(), false, false, nodeCountForStats);
     }
 
     @Override
