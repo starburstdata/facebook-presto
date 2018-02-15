@@ -82,6 +82,7 @@ final class MetricComparator
         // Even we calculate stats one-off and caching is not necessary, it is useful for debugging purposes
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.empty(), noLookup(), session, () -> types);
         PlanNodeStatsEstimate stats = statsProvider.getStats(node);
+//        System.out.println(PlanStatsPrinter.displayPlanStats(node, statsProvider));
         return stats;
     }
 
