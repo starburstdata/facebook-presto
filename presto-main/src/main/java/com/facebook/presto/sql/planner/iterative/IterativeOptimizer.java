@@ -16,11 +16,10 @@ package com.facebook.presto.sql.planner.iterative;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CachingCostProvider;
-import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
@@ -51,20 +50,20 @@ public class IterativeOptimizer
         implements PlanOptimizer
 {
     private final StatsRecorder stats;
-    private final StatsCalculator statsCalculator;
+    private final StatsProviderFactory statsProviderFactory;
     private final CostCalculator costCalculator;
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
 
-    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
+    public IterativeOptimizer(StatsRecorder stats, StatsProviderFactory statsProviderFactory, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(stats, statsCalculator, costCalculator, ImmutableList.of(), rules);
+        this(stats, statsProviderFactory, costCalculator, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(StatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(StatsRecorder stats, StatsProviderFactory statsProviderFactory, CostCalculator costCalculator, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
         this.stats = requireNonNull(stats, "stats is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.statsProviderFactory = requireNonNull(statsProviderFactory, "statsProviderFactory is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
@@ -200,7 +199,7 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator::getTypes);
+        StatsProvider statsProvider = statsProviderFactory.create(context.memo, context.lookup, context.session, context.symbolAllocator::getTypes);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator::getTypes);
 
         return new Rule.Context()

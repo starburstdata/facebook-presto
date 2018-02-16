@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
@@ -45,6 +46,8 @@ public interface QueryRunner
     NodePartitioningManager getNodePartitioningManager();
 
     StatsCalculator getStatsCalculator();
+
+    StatsProviderFactory getStatsProviderFactory();
 
     TestingAccessControlManager getAccessControl();
 

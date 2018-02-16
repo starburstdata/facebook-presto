@@ -15,7 +15,9 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
@@ -364,6 +366,11 @@ public class TestingPrestoServer
     public StatsCalculator getStatsCalculator()
     {
         return statsCalculator;
+    }
+
+    public StatsProviderFactory getStatsProviderFactory()
+    {
+        return (memo, lookup, session, types) -> new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, types);
     }
 
     public TestingAccessControlManager getAccessControl()

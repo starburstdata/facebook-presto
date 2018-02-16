@@ -92,7 +92,7 @@ public class TestEliminateSorts
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new StatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getStatsProviderFactory(),
                         getQueryRunner().getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 

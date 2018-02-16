@@ -15,7 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -50,6 +52,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -251,6 +254,12 @@ public class DistributedQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return coordinator.getStatsCalculator();
+    }
+
+    @Override
+    public StatsProviderFactory getStatsProviderFactory()
+    {
+        return (memo, lookup, session, types) -> new CachingStatsProvider(getStatsCalculator(), Optional.of(memo), lookup, session, types);
     }
 
     @Override

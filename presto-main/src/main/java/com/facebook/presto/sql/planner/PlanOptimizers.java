@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -116,6 +118,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public class PlanOptimizers
@@ -175,6 +178,8 @@ public class PlanOptimizers
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
                 new MergeFilters());
 
+        StatsProviderFactory statsProviderFactory = (memo, lookup, session, types) -> new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, types);
+
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
@@ -196,7 +201,7 @@ public class PlanOptimizers
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 stats,
-                statsCalculator,
+                statsProviderFactory,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
                         new InlineProjections(),
@@ -204,7 +209,7 @@ public class PlanOptimizers
 
         IterativeOptimizer projectionPushDown = new IterativeOptimizer(
                 stats,
-                statsCalculator,
+                statsProviderFactory,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
                         new PushProjectionThroughUnion(),
@@ -212,7 +217,7 @@ public class PlanOptimizers
 
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
                 stats,
-                statsCalculator,
+                statsProviderFactory,
                 estimatedExchangesCostCalculator,
                 new SimplifyExpressions(metadata, sqlParser).rules());
 
@@ -220,7 +225,7 @@ public class PlanOptimizers
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableList.of(new DesugaringOptimizer(metadata, sqlParser)),
                         ImmutableSet.<Rule<?>>builder()
@@ -230,12 +235,12 @@ public class PlanOptimizers
                                 .build()),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         new CanonicalizeExpressions().rules()),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(predicatePushDownRules)
@@ -262,7 +267,7 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer(),
@@ -272,13 +277,13 @@ public class PlanOptimizers
                 inlineProjections,
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new TransformExistsApplyToLateralNode(metadata.getFunctionRegistry()))),
                 new TransformQuantifiedComparisonApplyToLateralJoin(metadata),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarLateralNodes(),
@@ -287,7 +292,7 @@ public class PlanOptimizers
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
@@ -299,13 +304,13 @@ public class PlanOptimizers
                 new PredicatePushDown(metadata, sqlParser),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         new PickTableLayout(metadata).rules()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
@@ -318,13 +323,13 @@ public class PlanOptimizers
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant())),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 // add UnaliasSymbolReferences when it's ported
@@ -335,26 +340,26 @@ public class PlanOptimizers
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new MetadataQueryOptimizer(metadata),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 new PredicatePushDown(metadata, sqlParser),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         new PickTableLayout(metadata).rules()),
                 projectionPushDown,
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
 
@@ -364,7 +369,7 @@ public class PlanOptimizers
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new ReorderJoins(costComparator))));
 
@@ -372,7 +377,7 @@ public class PlanOptimizers
             builder.add(
                     new IterativeOptimizer(
                             stats,
-                            statsCalculator,
+                            statsProviderFactory,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new SingleMarkDistinctToGroupBy())),
                     new PruneUnreferencedOutputs());
@@ -381,7 +386,7 @@ public class PlanOptimizers
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
                 stats,
-                statsCalculator,
+                statsProviderFactory,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
                         new CreatePartialTopN(),
@@ -390,7 +395,7 @@ public class PlanOptimizers
         if (!forceSingleNode) {
             builder.add((new IterativeOptimizer(
                     stats,
-                    statsCalculator,
+                    statsProviderFactory,
                     estimatedExchangesCostCalculator,
                     ImmutableList.of(new com.facebook.presto.sql.planner.optimizations.DetermineJoinDistributionType()), // Must run before AddExchanges
                     ImmutableSet.of(new DetermineJoinDistributionType(costComparator))))); // Must run before AddExchanges
@@ -398,7 +403,7 @@ public class PlanOptimizers
             builder.add(
                     new IterativeOptimizer(
                             stats,
-                            statsCalculator,
+                            statsProviderFactory,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new AddExchanges(metadata, sqlParser));
@@ -409,7 +414,7 @@ public class PlanOptimizers
         builder.add(
                 new IterativeOptimizer(
                         stats,
-                        statsCalculator,
+                        statsProviderFactory,
                         costCalculator,
                         ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
@@ -420,7 +425,7 @@ public class PlanOptimizers
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new IterativeOptimizer(
                 stats,
-                statsCalculator,
+                statsProviderFactory,
                 costCalculator,
                 ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
@@ -431,7 +436,7 @@ public class PlanOptimizers
         // This optimizer must be run after all exchange-related optimizers
         builder.add(new IterativeOptimizer(
                 stats,
-                statsCalculator,
+                statsProviderFactory,
                 costCalculator,
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
@@ -439,7 +444,7 @@ public class PlanOptimizers
                         new PruneJoinColumns())));
         builder.add(new IterativeOptimizer(
                 stats,
-                statsCalculator,
+                statsProviderFactory,
                 costCalculator,
                 ImmutableSet.of(
                         new AddIntermediateAggregations(),

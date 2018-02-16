@@ -132,7 +132,7 @@ public class BasePlanTest
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new StatsRecorder(),
-                        queryRunner.getStatsCalculator(),
+                        queryRunner.getStatsProviderFactory(),
                         queryRunner.getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
