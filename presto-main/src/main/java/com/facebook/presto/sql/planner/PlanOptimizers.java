@@ -375,7 +375,7 @@ public class PlanOptimizers
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 new IterativeOptimizer(
                         stats,
-                        statsProviderFactory,
+                        reorderJoinsStatsProviderFactory(statsCalculator),
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new ReorderJoins(costComparator))));
 
@@ -467,6 +467,17 @@ public class PlanOptimizers
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
         this.optimizers = builder.build();
+    }
+
+    private StatsProviderFactory reorderJoinsStatsProviderFactory(StatsCalculator statsCalculator)
+    {
+        return (memo, lookup, session, types) -> {
+            return new MemoStatsProvider(
+                    new CachingStatsProvider(
+                            new ReorderJoins.EquivalentJoinCachingStatsProvider(
+                                    new CalculatingStatsProvider(statsCalculator, lookup, session, types))),
+                    memo);
+        };
     }
 
     public List<PlanOptimizer> get()
