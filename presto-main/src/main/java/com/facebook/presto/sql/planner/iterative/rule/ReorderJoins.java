@@ -428,7 +428,7 @@ public class ReorderJoins
             extends StatsProvider
     {
         private final StatsProvider delegate;
-        private final Map<Set<Integer>, PlanNodeStatsEstimate> cache = new HashMap<>();
+        private final Map<CacheKey, PlanNodeStatsEstimate> cache = new HashMap<>();
 
         public EquivalentJoinCachingStatsProvider(StatsProvider delegate)
         {
@@ -439,24 +439,28 @@ public class ReorderJoins
         public PlanNodeStatsEstimate getStats(PlanNode node, StatsProvider wrapper)
         {
             if (isReorderJoinsJoinNode(node)) {
-                Set<Integer> groupIds = getGroupIds(node);
-                PlanNodeStatsEstimate stats = cache.get(groupIds);
+                CacheKey cacheKey = getCacheKey(node);
+                PlanNodeStatsEstimate stats = cache.get(cacheKey);
                 if (stats != null) {
                     return stats;
                 }
                 stats = delegate.getStats(node, wrapper);
-                verify(cache.put(groupIds, stats) == null, "Stats already set");
+                verify(cache.put(cacheKey, stats) == null, "Stats already set");
                 return stats;
             }
 
             return delegate.getStats(node, wrapper);
         }
 
-        private Set<Integer> getGroupIds(PlanNode planNode)
+        private CacheKey getCacheKey(PlanNode planNode)
         {
             ImmutableSet.Builder<Integer> groupIds = ImmutableSet.builder();
             planNode.accept(new GroupIdCollector(), groupIds);
-            return groupIds.build();
+
+            ImmutableSet.Builder<JoinNode.EquiJoinClause> criteria = ImmutableSet.builder();
+            planNode.accept(new CriteriaCollector(), criteria);
+
+            return new CacheKey(groupIds.build(), criteria.build());
         }
 
         private boolean isReorderJoinsJoinNode(PlanNode node)
@@ -479,6 +483,49 @@ public class ReorderJoins
             {
                 groupIds.add(node.getGroupId());
                 return null;
+            }
+        }
+
+        private static final class CriteriaCollector
+                extends SimplePlanVisitor<ImmutableSet.Builder<JoinNode.EquiJoinClause>>
+        {
+            @Override
+            public Void visitJoin(JoinNode node, ImmutableSet.Builder<JoinNode.EquiJoinClause> criteria)
+            {
+                criteria.addAll(node.getCriteria());
+                return null;
+            }
+        }
+
+        private static final class CacheKey
+        {
+            private final Set<Integer> groupIds;
+            private final Set<JoinNode.EquiJoinClause> criteria;
+
+            public CacheKey(Set<Integer> groupIds, Set<JoinNode.EquiJoinClause> criteria)
+            {
+                this.groupIds = ImmutableSet.copyOf(requireNonNull(groupIds, "groupIds is null"));
+                this.criteria = ImmutableSet.copyOf(requireNonNull(criteria, "criteria is null"));
+            }
+
+            @Override
+            public boolean equals(Object o)
+            {
+                if (this == o) {
+                    return true;
+                }
+                if (o == null || getClass() != o.getClass()) {
+                    return false;
+                }
+                CacheKey cacheKey = (CacheKey) o;
+                return Objects.equals(groupIds, cacheKey.groupIds) &&
+                        Objects.equals(criteria, cacheKey.criteria);
+            }
+
+            @Override
+            public int hashCode()
+            {
+                return Objects.hash(groupIds, criteria);
             }
         }
     }
