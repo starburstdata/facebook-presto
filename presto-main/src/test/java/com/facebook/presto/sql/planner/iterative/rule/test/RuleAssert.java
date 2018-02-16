@@ -16,8 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostProvider;
+import com.facebook.presto.cost.MemoStatsProvider;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
@@ -207,7 +209,10 @@ public class RuleAssert
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
+        StatsProvider statsProvider = new MemoStatsProvider(
+                new CachingStatsProvider(
+                        new CalculatingStatsProvider(statsCalculator, lookup, session, symbolAllocator::getTypes)),
+                memo);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), lookup, session, symbolAllocator::getTypes);
 
         return new Rule.Context()

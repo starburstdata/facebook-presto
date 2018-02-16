@@ -29,15 +29,19 @@ import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.MemoStatsProvider;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.SemiJoinStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.execution.CommitTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
@@ -473,6 +477,17 @@ public class LocalQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return statsCalculator;
+    }
+
+    @Override
+    public StatsProviderFactory getStatsProviderFactory()
+    {
+        return (memo, lookup, session, types) -> {
+            return new MemoStatsProvider(
+                    new CachingStatsProvider(
+                            new CalculatingStatsProvider(statsCalculator, lookup, session, types)),
+                    memo);
+        };
     }
 
     public CostCalculator getCostCalculator()

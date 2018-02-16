@@ -299,7 +299,7 @@ public class TestReorderWindows
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         new StatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getStatsProviderFactory(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),

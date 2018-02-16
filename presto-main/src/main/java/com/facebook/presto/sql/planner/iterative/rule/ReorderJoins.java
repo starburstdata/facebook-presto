@@ -18,13 +18,17 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -70,6 +74,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -371,8 +376,6 @@ public class ReorderJoins
 
         private JoinEnumerationResult setJoinNodeProperties(JoinNode joinNode)
         {
-            // TODO avoid stat (but not cost) recalculation for all considered (distribution,flip) pairs, since resulting relation is the same in all case
-
             List<JoinEnumerationResult> possibleJoinNodes = new ArrayList<>();
             FeaturesConfig.JoinDistributionType joinDistributionType = getJoinDistributionType(session);
             if (joinDistributionType.canRepartition() && !joinNode.isCrossJoin()) {
@@ -418,6 +421,112 @@ public class ReorderJoins
         public PlanNodeCostEstimate getCost()
         {
             return cost;
+        }
+    }
+
+    public static class EquivalentJoinCachingStatsProvider
+            extends StatsProvider
+    {
+        private final StatsProvider delegate;
+        private final Map<CacheKey, PlanNodeStatsEstimate> cache = new HashMap<>();
+
+        public EquivalentJoinCachingStatsProvider(StatsProvider delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public PlanNodeStatsEstimate getStats(PlanNode node, StatsProvider wrapper)
+        {
+            if (isReorderJoinsJoinNode(node)) {
+                CacheKey cacheKey = getCacheKey(node);
+                PlanNodeStatsEstimate stats = cache.get(cacheKey);
+                if (stats != null) {
+                    return stats;
+                }
+                stats = delegate.getStats(node, wrapper);
+                verify(cache.put(cacheKey, stats) == null, "Stats already set");
+                return stats;
+            }
+
+            return delegate.getStats(node, wrapper);
+        }
+
+        private CacheKey getCacheKey(PlanNode planNode)
+        {
+            ImmutableSet.Builder<Integer> groupIds = ImmutableSet.builder();
+            planNode.accept(new GroupIdCollector(), groupIds);
+
+            ImmutableSet.Builder<JoinNode.EquiJoinClause> criteria = ImmutableSet.builder();
+            planNode.accept(new CriteriaCollector(), criteria);
+
+            return new CacheKey(groupIds.build(), criteria.build());
+        }
+
+        private boolean isReorderJoinsJoinNode(PlanNode node)
+        {
+            if (node instanceof JoinNode) {
+                JoinNode joinNode = (JoinNode) node;
+                return joinNode.getType() == INNER
+                        && !joinNode.getFilter().isPresent()
+                        && isReorderJoinsJoinNode(joinNode.getLeft())
+                        && isReorderJoinsJoinNode(joinNode.getRight());
+            }
+            return node instanceof GroupReference;
+        }
+
+        private static final class GroupIdCollector
+                extends SimplePlanVisitor<ImmutableSet.Builder<Integer>>
+        {
+            @Override
+            public Void visitGroupReference(GroupReference node, ImmutableSet.Builder<Integer> groupIds)
+            {
+                groupIds.add(node.getGroupId());
+                return null;
+            }
+        }
+
+        private static final class CriteriaCollector
+                extends SimplePlanVisitor<ImmutableSet.Builder<JoinNode.EquiJoinClause>>
+        {
+            @Override
+            public Void visitJoin(JoinNode node, ImmutableSet.Builder<JoinNode.EquiJoinClause> criteria)
+            {
+                criteria.addAll(node.getCriteria());
+                return null;
+            }
+        }
+
+        private static final class CacheKey
+        {
+            private final Set<Integer> groupIds;
+            private final Set<JoinNode.EquiJoinClause> criteria;
+
+            public CacheKey(Set<Integer> groupIds, Set<JoinNode.EquiJoinClause> criteria)
+            {
+                this.groupIds = ImmutableSet.copyOf(requireNonNull(groupIds, "groupIds is null"));
+                this.criteria = ImmutableSet.copyOf(requireNonNull(criteria, "criteria is null"));
+            }
+
+            @Override
+            public boolean equals(Object o)
+            {
+                if (this == o) {
+                    return true;
+                }
+                if (o == null || getClass() != o.getClass()) {
+                    return false;
+                }
+                CacheKey cacheKey = (CacheKey) o;
+                return Objects.equals(groupIds, cacheKey.groupIds) &&
+                        Objects.equals(criteria, cacheKey.criteria);
+            }
+
+            @Override
+            public int hashCode()
+            {
+                return Objects.hash(groupIds, criteria);
+            }
         }
     }
 }

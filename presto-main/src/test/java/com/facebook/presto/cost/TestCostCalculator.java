@@ -49,7 +49,6 @@ import java.util.function.Function;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.ZERO_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.cpuCost;
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -73,18 +72,20 @@ public class TestCostCalculator
     public void testTableScan()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
+        SettableStatsProvider stats = new SettableStatsProvider();
+        stats.put(tableScan, statsEstimate(1000));
 
         assertCost(
                 tableScan,
                 ImmutableMap.of(),
-                ImmutableMap.of("ts", statsEstimate(1000)))
+                stats)
                 .cpu(1000)
                 .memory(0)
                 .network(0);
         assertCostEstimatedExchanges(
                 tableScan,
                 ImmutableMap.of(),
-                ImmutableMap.of("ts", statsEstimate(1000)))
+                stats)
                 .cpu(1000)
                 .memory(0)
                 .network(0);
@@ -95,9 +96,12 @@ public class TestCostCalculator
     @Test
     public void testProject()
     {
-        PlanNode project = project("project", tableScan("ts", "orderkey"), "string", new Cast(new SymbolReference("orderkey"), "STRING"));
+        TableScanNode tableScan = tableScan("ts", "orderkey");
+        PlanNode project = project("project", tableScan, "string", new Cast(new SymbolReference("orderkey"), "STRING"));
         Map<String, PlanNodeCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
-        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of("project", statsEstimate(4000), "ts", statsEstimate(1000));
+        SettableStatsProvider stats = new SettableStatsProvider();
+        stats.put(project, statsEstimate(4000));
+        stats.put(tableScan, statsEstimate(1000));
 
         assertCost(
                 project,
@@ -121,9 +125,11 @@ public class TestCostCalculator
     @Test
     public void testRepartitionedJoin()
     {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        TableScanNode ts2 = tableScan("ts2", "orderkey_0");
         JoinNode join = join("join",
-                tableScan("ts1", "orderkey"),
-                tableScan("ts2", "orderkey_0"),
+                ts1,
+                ts2,
                 JoinNode.DistributionType.PARTITIONED,
                 "orderkey",
                 "orderkey_0");
@@ -132,10 +138,10 @@ public class TestCostCalculator
                 "ts1", cpuCost(6000),
                 "ts2", cpuCost(1000));
 
-        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
-                "join", statsEstimate(12000),
-                "ts1", statsEstimate(6000),
-                "ts2", statsEstimate(1000));
+        SettableStatsProvider stats = new SettableStatsProvider();
+        stats.put(join, statsEstimate(12000));
+        stats.put(ts1, statsEstimate(6000));
+        stats.put(ts2, statsEstimate(1000));
 
         assertCost(
                 join,
@@ -155,9 +161,11 @@ public class TestCostCalculator
     @Test
     public void testReplicatedJoin()
     {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        TableScanNode ts2 = tableScan("ts2", "orderkey_0");
         JoinNode join = join("join",
-                tableScan("ts1", "orderkey"),
-                tableScan("ts2", "orderkey_0"),
+                ts1,
+                ts2,
                 JoinNode.DistributionType.REPLICATED,
                 "orderkey",
                 "orderkey_0");
@@ -166,10 +174,10 @@ public class TestCostCalculator
                 "ts1", cpuCost(6000),
                 "ts2", cpuCost(1000));
 
-        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
-                "join", statsEstimate(12000),
-                "ts1", statsEstimate(6000),
-                "ts2", statsEstimate(1000));
+        SettableStatsProvider stats = new SettableStatsProvider();
+        stats.put(join, statsEstimate(12000));
+        stats.put(ts1, statsEstimate(6000));
+        stats.put(ts2, statsEstimate(1000));
 
         assertCost(
                 join,
@@ -188,13 +196,14 @@ public class TestCostCalculator
     @Test
     public void testAggregation()
     {
+        TableScanNode tableScan = tableScan("ts", "orderkey");
         AggregationNode aggregationNode = aggregation("agg",
-                tableScan("ts", "orderkey"));
+                tableScan);
 
         Map<String, PlanNodeCostEstimate> costs = ImmutableMap.of("ts", cpuCost(6000));
-        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
-                "ts", statsEstimate(6000),
-                "agg", statsEstimate(8));
+        SettableStatsProvider stats = new SettableStatsProvider();
+        stats.put(tableScan, statsEstimate(6000));
+        stats.put(aggregationNode, statsEstimate(8));
 
         assertCost(aggregationNode, costs, stats)
                 .cpu(6000 + 6000);
@@ -207,7 +216,7 @@ public class TestCostCalculator
     private CostAssertionBuilder assertCost(
             PlanNode node,
             Map<String, PlanNodeCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats)
+            StatsProvider stats)
     {
         return assertCost(costCalculatorUsingExchanges, node, costs, stats);
     }
@@ -215,7 +224,7 @@ public class TestCostCalculator
     private CostAssertionBuilder assertCostEstimatedExchanges(
             PlanNode node,
             Map<String, PlanNodeCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats)
+            StatsProvider stats)
     {
         return assertCost(costCalculatorWithEstimatedExchanges, node, costs, stats);
     }
@@ -224,13 +233,13 @@ public class TestCostCalculator
             CostCalculator costCalculator,
             PlanNode node,
             Map<String, PlanNodeCostEstimate> costs,
-            Map<String, PlanNodeStatsEstimate> stats)
+            StatsProvider stats)
     {
         PlanNodeCostEstimate cumulativeCost = calculateCumulativeCost(
                 costCalculator,
                 node,
                 planNode -> costs.get(planNode.getId().toString()),
-                planNode -> stats.get(planNode.getId().toString()));
+                stats);
         return new CostAssertionBuilder(cumulativeCost);
     }
 
@@ -240,13 +249,13 @@ public class TestCostCalculator
                 costCalculatorUsingExchanges,
                 node,
                 planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS))
+                new SettableStatsProvider()))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCumulativeCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
                 planNode -> UNKNOWN_COST,
-                planNode -> UNKNOWN_STATS))
+                new SettableStatsProvider()))
                 .hasUnknownComponents();
     }
 
@@ -254,11 +263,11 @@ public class TestCostCalculator
             CostCalculator costCalculator,
             PlanNode node,
             Function<PlanNode, PlanNodeCostEstimate> costs,
-            Function<PlanNode, PlanNodeStatsEstimate> stats)
+            StatsProvider stats)
     {
         PlanNodeCostEstimate localCost = costCalculator.calculateCost(
                 node,
-                planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
+                stats,
                 noLookup(),
                 session,
                 ImmutableMap.of());

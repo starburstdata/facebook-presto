@@ -14,6 +14,7 @@
 package com.facebook.presto.tests.statistics;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.type.Type;
@@ -79,7 +80,7 @@ final class MetricComparator
         // We calculate stats one-off, so caching is not necessary
         return statsCalculator.calculateStats(
                 node,
-                source -> calculateStats(source, statsCalculator, session, types),
+                new CalculatingStatsProvider(statsCalculator, session, types),
                 noLookup(),
                 session,
                 types);

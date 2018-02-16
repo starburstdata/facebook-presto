@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -94,11 +95,7 @@ public class TestJoinEnumerator
                 ImmutableList.of(a1, b1));
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         CachingStatsProvider statsProvider = new CachingStatsProvider(
-                queryRunner.getStatsCalculator(),
-                Optional.empty(),
-                noLookup(),
-                queryRunner.getDefaultSession(),
-                symbolAllocator::getTypes);
+                new CalculatingStatsProvider(queryRunner.getStatsCalculator(), noLookup(), queryRunner.getDefaultSession(), symbolAllocator::getTypes));
         CachingCostProvider costProvider = new CachingCostProvider(
                 queryRunner.getCostCalculator(),
                 statsProvider,

@@ -21,12 +21,10 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.cost.PlanNodeStatsEstimate.UNKNOWN_STATS;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -38,8 +36,7 @@ public class StatsCalculatorAssertion
     private final Session session;
     private final PlanNode planNode;
     private final Map<Symbol, Type> types;
-
-    private Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
+    private final SettableStatsProvider statsProvider = new SettableStatsProvider();
 
     public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, Map<Symbol, Type> types)
     {
@@ -47,9 +44,6 @@ public class StatsCalculatorAssertion
         this.session = requireNonNull(session, "sesssion can not be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
         this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
-
-        sourcesStats = new HashMap<>();
-        planNode.getSources().forEach(child -> sourcesStats.put(child, UNKNOWN_STATS));
     }
 
     public StatsCalculatorAssertion withSourceStats(PlanNodeStatsEstimate sourceStats)
@@ -61,35 +55,29 @@ public class StatsCalculatorAssertion
     public StatsCalculatorAssertion withSourceStats(int sourceIndex, PlanNodeStatsEstimate sourceStats)
     {
         checkArgument(sourceIndex < planNode.getSources().size(), "invalid sourceIndex %s; planNode has %s sources", sourceIndex, planNode.getSources().size());
-        sourcesStats.put(planNode.getSources().get(sourceIndex), sourceStats);
+        statsProvider.put(planNode.getSources().get(sourceIndex), sourceStats);
         return this;
     }
 
     public StatsCalculatorAssertion withSourceStats(PlanNodeId planNodeId, PlanNodeStatsEstimate sourceStats)
     {
         PlanNode sourceNode = PlanNodeSearcher.searchFrom(planNode).where(node -> node.getId().equals(planNodeId)).findOnlyElement();
-        sourcesStats.put(sourceNode, sourceStats);
+        statsProvider.put(sourceNode, sourceStats);
         return this;
     }
 
     public StatsCalculatorAssertion check(Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
-        PlanNodeStatsEstimate statsEstimate = statsCalculator.calculateStats(planNode, this::getSourceStats, noLookup(), session, types);
+        PlanNodeStatsEstimate statsEstimate = statsCalculator.calculateStats(planNode, statsProvider, noLookup(), session, types);
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
     }
 
     public StatsCalculatorAssertion check(ComposableStatsCalculator.Rule rule, Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
-        Optional<PlanNodeStatsEstimate> statsEstimate = rule.calculate(planNode, this::getSourceStats, noLookup(), session, types);
+        Optional<PlanNodeStatsEstimate> statsEstimate = rule.calculate(planNode, statsProvider, noLookup(), session, types);
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;
-    }
-
-    private PlanNodeStatsEstimate getSourceStats(PlanNode sourceNode)
-    {
-        checkArgument(sourcesStats.containsKey(sourceNode), "stats not found for source %s", sourceNode);
-        return sourcesStats.get(sourceNode);
     }
 }

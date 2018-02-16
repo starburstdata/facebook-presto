@@ -13,24 +13,25 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import java.util.IdentityHashMap;
-import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public final class CachingStatsProvider
+public final class MemoStatsProvider
         extends StatsProvider
 {
     private final StatsProvider delegate;
+    private final Memo memo;
 
-    private final Map<PlanNode, PlanNodeStatsEstimate> cache = new IdentityHashMap<>();
-
-    public CachingStatsProvider(StatsProvider delegate)
+    public MemoStatsProvider(StatsProvider delegate, Memo memo)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.memo = requireNonNull(memo, "memo is null");
     }
 
     @Override
@@ -38,13 +39,25 @@ public final class CachingStatsProvider
     {
         requireNonNull(node, "node is null");
 
-        PlanNodeStatsEstimate stats = cache.get(node);
-        if (stats != null) {
-            return stats;
+        if (node instanceof GroupReference) {
+            return getGroupStats((GroupReference) node, wrapper);
         }
 
-        stats = delegate.getStats(node, wrapper);
-        verify(cache.put(node, stats) == null, "Stats already set");
-        return stats;
+        return delegate.getStats(node, wrapper);
+    }
+
+    private PlanNodeStatsEstimate getGroupStats(GroupReference groupReference, StatsProvider wrapper)
+    {
+        int group = groupReference.getGroupId();
+
+        Optional<PlanNodeStatsEstimate> stats = memo.getStats(group);
+        if (stats.isPresent()) {
+            return stats.get();
+        }
+
+        PlanNodeStatsEstimate groupStats = delegate.getStats(memo.resolve(groupReference), wrapper);
+        verify(!memo.getStats(group).isPresent(), "Group stats already set");
+        memo.storeStats(group, groupStats);
+        return groupStats;
     }
 }

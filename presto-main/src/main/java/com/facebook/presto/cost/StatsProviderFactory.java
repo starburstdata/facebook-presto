@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Memo;
 
-public abstract class StatsProvider
+import java.util.Map;
+import java.util.function.Supplier;
+
+public interface StatsProviderFactory
 {
-    public final PlanNodeStatsEstimate getStats(PlanNode node)
-    {
-        return getStats(node, this);
-    }
-
-    public abstract PlanNodeStatsEstimate getStats(PlanNode node, StatsProvider wrapper);
+    StatsProvider create(Memo memo, Lookup lookup, Session session, Supplier<Map<Symbol, Type>> types);
 }

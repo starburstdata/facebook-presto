@@ -71,7 +71,7 @@ public class TestIterativeOptimizer
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
                 new StatsRecorder(),
-                queryRunner.getStatsCalculator(),
+                queryRunner.getStatsProviderFactory(),
                 queryRunner.getCostCalculator(),
                 ImmutableSet.of(new NonConvergingRule()));
 
