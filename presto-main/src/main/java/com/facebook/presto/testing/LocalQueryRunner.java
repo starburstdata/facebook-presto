@@ -30,6 +30,7 @@ import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.CoefficientBasedStatsCalculator;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
@@ -480,7 +481,11 @@ public class LocalQueryRunner
     @Override
     public StatsProviderFactory getStatsProviderFactory()
     {
-        return (memo, lookup, session, types) -> new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, types);
+        return (memo, lookup, session, types) -> {
+            return new CachingStatsProvider(
+                    new CalculatingStatsProvider(statsCalculator, lookup, session, types),
+                    Optional.of(memo));
+        };
     }
 
     public CostCalculator getCostCalculator()

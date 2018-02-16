@@ -13,56 +13,43 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.base.Suppliers;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
-import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public final class CachingStatsProvider
-        implements StatsProvider
+        extends StatsProvider
 {
-    private final StatsCalculator statsCalculator;
+    private final StatsProvider delegate;
     private final Optional<Memo> memo;
-    private final Lookup lookup;
-    private final Session session;
-    private final Supplier<Map<Symbol, Type>> types;
 
     private final Map<PlanNode, PlanNodeStatsEstimate> cache = new IdentityHashMap<>();
 
-    public CachingStatsProvider(StatsCalculator statsCalculator, Session session, Map<Symbol, Type> types)
+    public CachingStatsProvider(StatsProvider delegate)
     {
-        this(statsCalculator, Optional.empty(), noLookup(), session, Suppliers.ofInstance(requireNonNull(types, "types is null")));
+        this(delegate, Optional.empty());
     }
 
-    public CachingStatsProvider(StatsCalculator statsCalculator, Optional<Memo> memo, Lookup lookup, Session session, Supplier<Map<Symbol, Type>> types)
+    public CachingStatsProvider(StatsProvider delegate, Optional<Memo> memo)
     {
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
         this.memo = requireNonNull(memo, "memo is null");
-        this.lookup = requireNonNull(lookup, "lookup is null");
-        this.session = requireNonNull(session, "session is null");
-        this.types = requireNonNull(types, "types is null");
     }
 
     @Override
-    public PlanNodeStatsEstimate getStats(PlanNode node)
+    public PlanNodeStatsEstimate getStats(PlanNode node, StatsProvider wrapper)
     {
         requireNonNull(node, "node is null");
 
         if (node instanceof GroupReference) {
-            return getGroupStats((GroupReference) node);
+            return getGroupStats((GroupReference) node, wrapper);
         }
 
         PlanNodeStatsEstimate stats = cache.get(node);
@@ -70,12 +57,12 @@ public final class CachingStatsProvider
             return stats;
         }
 
-        stats = statsCalculator.calculateStats(node, this, lookup, session, types.get());
+        stats = delegate.getStats(node, wrapper);
         verify(cache.put(node, stats) == null, "Stats already set");
         return stats;
     }
 
-    private PlanNodeStatsEstimate getGroupStats(GroupReference groupReference)
+    private PlanNodeStatsEstimate getGroupStats(GroupReference groupReference, StatsProvider wrapper)
     {
         int group = groupReference.getGroupId();
         Memo memo = this.memo.orElseThrow(() -> new IllegalStateException("CachingStatsProvider without memo cannot handle GroupReferences"));
@@ -85,7 +72,7 @@ public final class CachingStatsProvider
             return stats.get();
         }
 
-        PlanNodeStatsEstimate groupStats = statsCalculator.calculateStats(memo.getNode(group), this, lookup, session, types.get());
+        PlanNodeStatsEstimate groupStats = delegate.getStats(memo.resolve(groupReference), wrapper);
         verify(!memo.getStats(group).isPresent(), "Group stats already set");
         memo.storeStats(group, groupStats);
         return groupStats;

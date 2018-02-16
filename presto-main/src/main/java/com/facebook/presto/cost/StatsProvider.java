@@ -15,7 +15,12 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-public interface StatsProvider
+public abstract class StatsProvider
 {
-    PlanNodeStatsEstimate getStats(PlanNode node);
+    public final PlanNodeStatsEstimate getStats(PlanNode node)
+    {
+        return getStats(node, this);
+    }
+
+    public abstract PlanNodeStatsEstimate getStats(PlanNode node, StatsProvider wrapper);
 }

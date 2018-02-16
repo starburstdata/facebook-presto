@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
@@ -178,7 +179,10 @@ public class PlanOptimizers
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
                 new MergeFilters());
 
-        StatsProviderFactory statsProviderFactory = (memo, lookup, session, types) -> new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, types);
+        StatsProviderFactory statsProviderFactory = (memo, lookup, session, types) -> {
+            return new CachingStatsProvider(
+                    new CalculatingStatsProvider(statsCalculator, lookup, session, types), Optional.of(memo));
+        };
 
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(

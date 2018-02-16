@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
@@ -560,7 +561,7 @@ public class PlanPrinter
         public Visitor(StatsCalculator statsCalculator, CostCalculator costCalculator, Map<Symbol, Type> types, Session session)
         {
             this.types = types;
-            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            this.statsProvider = new CachingStatsProvider(new CalculatingStatsProvider(statsCalculator, session, types));
             this.costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
             this.session = session;
         }
