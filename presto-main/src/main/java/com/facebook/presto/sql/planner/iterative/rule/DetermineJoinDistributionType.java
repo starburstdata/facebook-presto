@@ -66,7 +66,7 @@ public class DetermineJoinDistributionType
 
         PlanNode rewritten;
         if (joinDistributionType == AUTOMATIC) {
-            rewritten = getCostBasedJoin(joinNode, context, joinDistributionType);
+            rewritten = getCostBasedJoin(joinNode, context);
         }
         else {
             rewritten = getSyntacticOrderJoin(joinNode, context, joinDistributionType);
@@ -74,7 +74,7 @@ public class DetermineJoinDistributionType
         return Result.ofPlanNode(rewritten);
     }
 
-    private PlanNode getCostBasedJoin(JoinNode joinNode, Context context, JoinDistributionType joinDistributionType)
+    private PlanNode getCostBasedJoin(JoinNode joinNode, Context context)
     {
         Session session = context.getSession();
         CostProvider costProvider = context.getCostProvider();
@@ -84,13 +84,13 @@ public class DetermineJoinDistributionType
         List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
 
         JoinNode.Type type = joinNode.getType();
-        if (shouldRepartition(joinNode, joinDistributionType, context)) {
+        if (shouldRepartition(joinNode, AUTOMATIC, context)) {
             JoinNode possibleJoinNode = joinNode.withDistributionType(PARTITIONED);
             possibleJoinNodes.add(getJoinNodeWithCost(costProvider, possibleJoinNode));
             possibleJoinNodes.add(getJoinNodeWithCost(costProvider, possibleJoinNode.flipChildren().withDistributionType(PARTITIONED)));
         }
 
-        if (type != FULL && joinDistributionType.canReplicate()) {
+        if (type != FULL) {
             // RIGHT OUTER JOIN only works with hash partitioned data.
             if (type != RIGHT) {
                 possibleJoinNodes.add(getJoinNodeWithCost(costProvider, joinNode.withDistributionType(REPLICATED)));
@@ -103,7 +103,7 @@ public class DetermineJoinDistributionType
         }
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
-            return getSyntacticOrderJoin(joinNode, context, joinDistributionType);
+            return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
         }
 
         return possibleJoinNodes.stream()
