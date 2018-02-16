@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CalculatingStatsProvider;
+import com.facebook.presto.cost.MemoStatsProvider;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -372,9 +373,10 @@ public class TestingPrestoServer
     public StatsProviderFactory getStatsProviderFactory()
     {
         return (memo, lookup, session, types) -> {
-            return new CachingStatsProvider(
-                    new CalculatingStatsProvider(getStatsCalculator(), lookup, session, types),
-                    Optional.of(memo));
+            return new MemoStatsProvider(
+                    new CachingStatsProvider(
+                            new CalculatingStatsProvider(getStatsCalculator(), lookup, session, types)),
+                    memo);
         };
     }
 

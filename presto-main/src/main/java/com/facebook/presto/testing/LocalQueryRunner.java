@@ -36,6 +36,7 @@ import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.MemoStatsProvider;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.SelectingStatsCalculator;
 import com.facebook.presto.cost.SemiJoinStatsCalculator;
@@ -482,9 +483,10 @@ public class LocalQueryRunner
     public StatsProviderFactory getStatsProviderFactory()
     {
         return (memo, lookup, session, types) -> {
-            return new CachingStatsProvider(
-                    new CalculatingStatsProvider(statsCalculator, lookup, session, types),
-                    Optional.of(memo));
+            return new MemoStatsProvider(
+                    new CachingStatsProvider(
+                            new CalculatingStatsProvider(statsCalculator, lookup, session, types)),
+                    memo);
         };
     }
 

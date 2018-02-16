@@ -18,6 +18,7 @@ import com.facebook.presto.cost.CalculatingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
+import com.facebook.presto.cost.MemoStatsProvider;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProviderFactory;
 import com.facebook.presto.metadata.Metadata;
@@ -119,7 +120,6 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 public class PlanOptimizers
@@ -180,8 +180,10 @@ public class PlanOptimizers
                 new MergeFilters());
 
         StatsProviderFactory statsProviderFactory = (memo, lookup, session, types) -> {
-            return new CachingStatsProvider(
-                    new CalculatingStatsProvider(statsCalculator, lookup, session, types), Optional.of(memo));
+            return new MemoStatsProvider(
+                    new CachingStatsProvider(
+                            new CalculatingStatsProvider(statsCalculator, lookup, session, types)),
+                    memo);
         };
 
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
