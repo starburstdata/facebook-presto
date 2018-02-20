@@ -20,7 +20,7 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
+import com.facebook.presto.sql.planner.iterative.rule.PlanEnumeration.Result;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -112,7 +112,7 @@ public class TestJoinEnumerator
                 idAllocator,
                 queryRunner.getDefaultSession(),
                 multiJoinNode.getFilter());
-        JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
+        Result actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
         assertFalse(actual.getPlanNode().isPresent());
     }
 }
