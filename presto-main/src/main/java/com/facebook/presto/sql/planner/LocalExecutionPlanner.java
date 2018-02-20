@@ -193,6 +193,7 @@ import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMin
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isLocalDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
@@ -650,8 +651,12 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createMergeSource(RemoteSourceNode node, LocalExecutionPlanContext context)
         {
-            // merging remote source must have a single driver
-            context.setDriverInstanceCount(1);
+            if (isLocalDistributedSortEnabled(session)) {
+                context.setDriverInstanceCount(getTaskConcurrency(session));
+            }
+            else {
+                context.setDriverInstanceCount(1);
+            }
 
             checkArgument(node.getOrderingScheme().isPresent(), "orderingScheme is absent");
             OrderingScheme orderingScheme = node.getOrderingScheme().get();

@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.LOCAL_DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.REDISTRIBUTE_SORT;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
@@ -45,12 +44,13 @@ public class TestDistributedSort
         ImmutableList<Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", ASCENDING, LAST));
         assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", distributedSortNoRedistribution(), false,
                 output(
-                        exchange(REMOTE, GATHER, orderBy,
-                                exchange(LOCAL, GATHER, orderBy,
-                                        sort(orderBy,
-                                                exchange(LOCAL, REPARTITION,
-                                                        tableScan("orders", ImmutableMap.of(
-                                                                "ORDERKEY", "orderkey"))))))));
+                        exchange(LOCAL, GATHER, orderBy,
+                                exchange(REMOTE, GATHER, orderBy,
+                                        exchange(LOCAL, GATHER, orderBy,
+                                                sort(orderBy,
+                                                        exchange(LOCAL, REPARTITION,
+                                                                tableScan("orders", ImmutableMap.of(
+                                                                        "ORDERKEY", "orderkey")))))))));
     }
 
     @Test
@@ -59,12 +59,13 @@ public class TestDistributedSort
         ImmutableList<Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
         assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey DESC", distributedSortWithRedistribution(), false,
                 output(
-                        exchange(REMOTE, GATHER, orderBy,
-                                exchange(LOCAL, GATHER, orderBy,
-                                        sort(orderBy,
-                                                exchange(REMOTE, REPARTITION,
-                                                        tableScan("orders", ImmutableMap.of(
-                                                                "ORDERKEY", "orderkey"))))))));
+                        exchange(LOCAL, GATHER, orderBy,
+                                exchange(REMOTE, GATHER, orderBy,
+                                        exchange(LOCAL, GATHER, orderBy,
+                                                sort(orderBy,
+                                                        exchange(REMOTE, REPARTITION,
+                                                                tableScan("orders", ImmutableMap.of(
+                                                                        "ORDERKEY", "orderkey")))))))));
     }
 
     @Test

@@ -75,6 +75,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isLocalDistributedSortEnabled;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
@@ -273,7 +274,7 @@ final class StreamPropertyDerivations
         public StreamProperties visitExchange(ExchangeNode node, List<StreamProperties> inputProperties)
         {
             if (node.getScope() == REMOTE) {
-                if (node.getOrderingScheme().isPresent()) {
+                if (node.getOrderingScheme().isPresent() && !isLocalDistributedSortEnabled(session)) {
                     return StreamProperties.ordered();
                 }
                 // TODO: correctly determine if stream is parallelised

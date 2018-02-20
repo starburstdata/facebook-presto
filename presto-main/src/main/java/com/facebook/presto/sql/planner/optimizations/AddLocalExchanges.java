@@ -398,10 +398,21 @@ public class AddLocalExchanges
             checkArgument(node.getScope() != LOCAL, "AddLocalExchanges can not process a plan containing a local exchange");
             // this node changes the input organization completely, so we do not pass through parent preferences
             if (node.getOrderingScheme().isPresent()) {
-                return planAndEnforceChildren(
+                PlanWithProperties planWithProperties = planAndEnforceChildren(
                         node,
                         any().withOrderSensitivity(),
                         any().withOrderSensitivity());
+                if (!planWithProperties.getProperties().isSingleStream()) {
+                    checkState(isLocalDistributedSortEnabled(session));
+                    // remote merge sources are parallelized when local distributed sort is enabled
+                    return deriveProperties(
+                            passthroughExchange(
+                                    idAllocator.getNextId(),
+                                    LOCAL,
+                                    planWithProperties.getNode(),
+                                    node.getOrderingScheme().get()),
+                            planWithProperties.getProperties());
+                }
             }
             return planAndEnforceChildren(node, any(), defaultParallelism(session));
         }
