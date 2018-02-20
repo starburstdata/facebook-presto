@@ -105,5 +105,10 @@ public class PlanEnumeration
         {
             return cost;
         }
+
+        public boolean isCostKnown()
+        {
+            return !cost.equals(INFINITE_COST) && !cost.hasUnknownComponents();
+        }
     }
 }
