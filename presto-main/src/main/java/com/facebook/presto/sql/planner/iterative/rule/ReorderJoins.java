@@ -17,7 +17,6 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;
-import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -37,11 +36,9 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,14 +51,13 @@ import java.util.stream.Stream;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.INFINITE_COST;
-import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.iterative.rule.MultiJoinNode.toMultiJoinNode;
-import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
-import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
+import static com.facebook.presto.sql.planner.iterative.rule.PlanEnumeration.INFINITE_COST_RESULT;
+import static com.facebook.presto.sql.planner.iterative.rule.PlanEnumeration.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.Assignments.identity;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -125,7 +121,7 @@ public class ReorderJoins
                 context.getIdAllocator(),
                 multiJoinNode.getFilter(),
                 context.getLookup());
-        JoinEnumerationResult result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
+        PlanEnumeration.Result result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
         if (!result.getPlanNode().isPresent()) {
             return Result.empty();
         }
@@ -139,58 +135,55 @@ public class ReorderJoins
     static class JoinEnumerator
     {
         private final Session session;
-        private final CostProvider costProvider;
-        // Using Ordering to facilitate rule determinism
-        private final Ordering<JoinEnumerationResult> resultComparator;
         private final PlanNodeIdAllocator idAllocator;
         private final EqualityInference allInference;
         private final Expression allFilter;
         private final Lookup lookup;
 
-        private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
+        private final Map<Set<PlanNode>, PlanEnumeration.Result> memo = new HashMap<>();
+        private final PlanEnumeration.Factory planEnumerationFactory;
 
         @VisibleForTesting
         JoinEnumerator(Session session, CostProvider costProvider, CostComparator costComparator, PlanNodeIdAllocator idAllocator, Expression filter, Lookup lookup)
         {
             this.session = requireNonNull(session, "session is null");
-            this.costProvider = requireNonNull(costProvider, "costProvider is null");
-            this.resultComparator = costComparator.forSession(session).onResultOf(result -> result.cost);
+            requireNonNull(costProvider, "costProvider is null");
+            requireNonNull(costComparator, "costComparator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.allInference = createEqualityInference(filter);
             this.allFilter = requireNonNull(filter, "filter is null");
             this.lookup = requireNonNull(lookup, "lookup is null");
+            this.planEnumerationFactory = new PlanEnumeration.Factory(costComparator, costProvider, session);
         }
 
-        private JoinEnumerationResult chooseJoinOrder(List<PlanNode> sources, List<Symbol> outputSymbols)
+        private PlanEnumeration.Result chooseJoinOrder(List<PlanNode> sources, List<Symbol> outputSymbols)
         {
             Set<PlanNode> multiJoinKey = ImmutableSet.copyOf(sources);
-            JoinEnumerationResult bestResult = memo.get(multiJoinKey);
+            PlanEnumeration.Result bestResult = memo.get(multiJoinKey);
             if (bestResult == null) {
                 checkState(sources.size() > 1, "sources size is less than or equal to one");
-                ImmutableList.Builder<JoinEnumerationResult> resultBuilder = ImmutableList.builder();
+                PlanEnumeration planEnumeration = planEnumerationFactory.create();
                 Set<Set<Integer>> partitions = generatePartitions(sources.size()).collect(toImmutableSet());
                 for (Set<Integer> partition : partitions) {
-                    JoinEnumerationResult result = createJoinAccordingToPartitioning(sources, outputSymbols, partition);
-                    if (result.cost.hasUnknownComponents()) {
+                    PlanEnumeration.Result result = createJoinAccordingToPartitioning(sources, outputSymbols, partition);
+                    if (result.getCost().hasUnknownComponents()) {
                         memo.put(multiJoinKey, result);
                         return result;
                     }
-                    if (!result.cost.equals(INFINITE_COST)) {
-                        resultBuilder.add(result);
+                    if (!result.getCost().equals(INFINITE_COST)) {
+                        planEnumeration.enumerate(result);
                     }
                 }
 
-                List<JoinEnumerationResult> results = resultBuilder.build();
-                if (results.isEmpty()) {
-                    memo.put(multiJoinKey, INFINITE_COST_RESULT);
+                bestResult = planEnumeration.getResult();
+                if (bestResult.getCost().equals(INFINITE_COST)) {
                     return INFINITE_COST_RESULT;
                 }
 
-                bestResult = resultComparator.min(resultBuilder.build());
                 memo.put(multiJoinKey, bestResult);
             }
-            if (bestResult.planNode.isPresent()) {
-                log.debug("Least cost join was: " + bestResult.planNode.get().toString());
+            if (bestResult.getPlanNode().isPresent()) {
+                log.debug("Least cost join was: " + bestResult.getPlanNode().get().toString());
             }
             return bestResult;
         }
@@ -216,7 +209,7 @@ public class ReorderJoins
                     .filter(subSet -> subSet.size() < numbers.size());
         }
 
-        JoinEnumerationResult createJoinAccordingToPartitioning(List<PlanNode> sources, List<Symbol> outputSymbols, Set<Integer> partitioning)
+        PlanEnumeration.Result createJoinAccordingToPartitioning(List<PlanNode> sources, List<Symbol> outputSymbols, Set<Integer> partitioning)
         {
             Set<PlanNode> leftSources = partitioning.stream()
                     .map(sources::get)
@@ -225,7 +218,7 @@ public class ReorderJoins
             return createJoin(leftSources, rightSources, outputSymbols);
         }
 
-        private JoinEnumerationResult createJoin(Set<PlanNode> leftSources, Set<PlanNode> rightSources, List<Symbol> outputSymbols)
+        private PlanEnumeration.Result createJoin(Set<PlanNode> leftSources, Set<PlanNode> rightSources, List<Symbol> outputSymbols)
         {
             Set<Symbol> leftSymbols = leftSources.stream()
                     .flatMap(node -> node.getOutputSymbols().stream())
@@ -267,28 +260,28 @@ public class ReorderJoins
                     .addAll(SymbolsExtractor.extractUnique(joinPredicates))
                     .build();
 
-            JoinEnumerationResult leftResult = getJoinSource(
+            PlanEnumeration.Result leftResult = getJoinSource(
                     ImmutableList.copyOf(leftSources),
                     requiredJoinSymbols.stream().filter(leftSymbols::contains).collect(toImmutableList()));
-            if (leftResult.cost.hasUnknownComponents()) {
+            if (leftResult.getCost().hasUnknownComponents()) {
                 return UNKNOWN_COST_RESULT;
             }
-            if (leftResult.cost.equals(INFINITE_COST)) {
+            if (leftResult.getCost().equals(INFINITE_COST)) {
                 return INFINITE_COST_RESULT;
             }
-            PlanNode left = leftResult.planNode.orElseThrow(() -> new IllegalStateException("no planNode present"));
-            JoinEnumerationResult rightResult = getJoinSource(
+            PlanNode left = leftResult.getPlanNode().orElseThrow(() -> new IllegalStateException("no planNode present"));
+            PlanEnumeration.Result rightResult = getJoinSource(
                     ImmutableList.copyOf(rightSources),
                     requiredJoinSymbols.stream()
                             .filter(rightSymbols::contains)
                             .collect(toImmutableList()));
-            if (rightResult.cost.hasUnknownComponents()) {
+            if (rightResult.getCost().hasUnknownComponents()) {
                 return UNKNOWN_COST_RESULT;
             }
-            if (rightResult.cost.equals(INFINITE_COST)) {
+            if (rightResult.getCost().equals(INFINITE_COST)) {
                 return INFINITE_COST_RESULT;
             }
-            PlanNode right = rightResult.planNode.orElseThrow(() -> new IllegalStateException("no planNode present"));
+            PlanNode right = rightResult.getPlanNode().orElseThrow(() -> new IllegalStateException("no planNode present"));
 
             // sort output symbols so that the left input symbols are first
             List<Symbol> sortedOutputSymbols = Stream.concat(left.getOutputSymbols().stream(), right.getOutputSymbols().stream())
@@ -304,7 +297,7 @@ public class ReorderJoins
                         .collect(toImmutableList());
             }
 
-            JoinEnumerationResult result = setJoinNodeProperties(new JoinNode(
+            PlanEnumeration.Result result = setJoinNodeProperties(new JoinNode(
                     idAllocator.getNextId(),
                     INNER,
                     left,
@@ -317,14 +310,14 @@ public class ReorderJoins
                     Optional.empty()));
 
             if (!joinOutputSymbols.equals(sortedOutputSymbols)) {
-                PlanNode resultNode = new ProjectNode(idAllocator.getNextId(), result.planNode.get(), identity(sortedOutputSymbols));
-                result = new JoinEnumerationResult(costProvider.getCumulativeCost(resultNode), Optional.of(resultNode));
+                PlanNode resultNode = new ProjectNode(idAllocator.getNextId(), result.getPlanNode().get(), identity(sortedOutputSymbols));
+                result = planEnumerationFactory.enumerate(resultNode);
             }
 
             return result;
         }
 
-        private JoinEnumerationResult getJoinSource(List<PlanNode> nodes, List<Symbol> outputSymbols)
+        private PlanEnumeration.Result getJoinSource(List<PlanNode> nodes, List<Symbol> outputSymbols)
         {
             PlanNode planNode;
             if (nodes.size() == 1) {
@@ -339,7 +332,7 @@ public class ReorderJoins
                 if (!(TRUE_LITERAL).equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
                 }
-                return new JoinEnumerationResult(costProvider.getCumulativeCost(planNode), Optional.of(planNode));
+                return planEnumerationFactory.enumerate(planNode);
             }
             return chooseJoinOrder(nodes, outputSymbols);
         }
@@ -360,63 +353,29 @@ public class ReorderJoins
             return leftSymbols.contains(leftSymbol) ? equiJoinClause : equiJoinClause.flip();
         }
 
-        private JoinEnumerationResult setJoinNodeProperties(JoinNode joinNode)
+        private PlanEnumeration.Result setJoinNodeProperties(JoinNode joinNode)
         {
-            List<JoinEnumerationResult> possibleJoinNodes = new ArrayList<>();
             FeaturesConfig.JoinDistributionType joinDistributionType = getJoinDistributionType(session);
 
             if (isAtMostScalar(joinNode.getRight(), lookup)) {
-                JoinNode node = joinNode.withDistributionType(REPLICATED);
-                return new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node));
+                return planEnumerationFactory.enumerate(joinNode.withDistributionType(REPLICATED));
             }
             if (isAtMostScalar(joinNode.getLeft(), lookup)) {
-                JoinNode node = joinNode.flipChildren().withDistributionType(REPLICATED);
-                return new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node));
+                return planEnumerationFactory.enumerate(joinNode.flipChildren().withDistributionType(REPLICATED));
             }
 
+            PlanEnumeration planEnumeration = planEnumerationFactory.create();
             if (joinDistributionType.canRepartition() && !joinNode.isCrossJoin()) {
                 JoinNode node = joinNode.withDistributionType(PARTITIONED);
-                possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
-                node = node.flipChildren();
-                possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
+                planEnumeration.enumerate(node);
+                planEnumeration.enumerate(node.flipChildren());
             }
             if (joinDistributionType.canReplicate()) {
                 JoinNode node = joinNode.withDistributionType(REPLICATED);
-                possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
-                node = node.flipChildren();
-                possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
+                planEnumeration.enumerate(node);
+                planEnumeration.enumerate(node.flipChildren());
             }
-            if (possibleJoinNodes.stream().anyMatch(result -> result.cost.hasUnknownComponents())) {
-                return UNKNOWN_COST_RESULT;
-            }
-            return resultComparator.min(possibleJoinNodes);
-        }
-    }
-
-    @VisibleForTesting
-    static class JoinEnumerationResult
-    {
-        static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(UNKNOWN_COST, Optional.empty());
-        static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(INFINITE_COST, Optional.empty());
-
-        private final Optional<PlanNode> planNode;
-        private final PlanNodeCostEstimate cost;
-
-        private JoinEnumerationResult(PlanNodeCostEstimate cost, Optional<PlanNode> planNode)
-        {
-            this.cost = requireNonNull(cost);
-            this.planNode = requireNonNull(planNode);
-            checkArgument(cost.hasUnknownComponents() || cost.equals(INFINITE_COST) || planNode.isPresent(), "planNode must be present if cost is known");
-        }
-
-        public Optional<PlanNode> getPlanNode()
-        {
-            return planNode;
-        }
-
-        public PlanNodeCostEstimate getCost()
-        {
-            return cost;
+            return planEnumeration.getResult();
         }
     }
 }
