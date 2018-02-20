@@ -37,6 +37,11 @@ public class PlanEnumeration
     private final Ordering<Result> ordering;
     private Result result = INFINITE_COST_RESULT;
 
+    public static PlanEnumeration create(CostComparator costComparator, CostProvider costProvider, Session session)
+    {
+        return new Factory(costComparator, costProvider, session).create();
+    }
+
     private PlanEnumeration(CostProvider costProvider, Ordering<Result> ordering)
     {
         this.costProvider = requireNonNull(costProvider, "costProvider is null");
@@ -91,6 +96,11 @@ public class PlanEnumeration
         public PlanNodeCostEstimate getCost()
         {
             return cost;
+        }
+
+        public boolean isCostKnown()
+        {
+            return !cost.equals(INFINITE_COST) && !cost.hasUnknownComponents();
         }
     }
 
