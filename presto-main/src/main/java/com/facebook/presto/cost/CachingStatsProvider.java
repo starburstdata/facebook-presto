@@ -143,16 +143,9 @@ public final class CachingStatsProvider
 
         private CacheKey getCacheKey(PlanNode planNode)
         {
-            ImmutableSet.Builder<Integer> groupIds = ImmutableSet.builder();
-            planNode.accept(new GroupIdCollector(), groupIds);
-
-            ImmutableSet.Builder<JoinNode.EquiJoinClause> criteria = ImmutableSet.builder();
-            planNode.accept(new CriteriaCollector(), criteria);
-
-            ImmutableSet.Builder<Expression> filters = ImmutableSet.builder();
-            planNode.accept(new FilterCollector(), filters);
-
-            return new CacheKey(groupIds.build(), criteria.build(), filters.build());
+            CacheKeyBuilder builder = new CacheKeyBuilder();
+            planNode.accept(builder, null);
+            return builder.build();
         }
 
         private boolean isInnerJoinNode(PlanNode node)
@@ -166,38 +159,32 @@ public final class CachingStatsProvider
             return false;
         }
 
-        private static final class GroupIdCollector
-                extends SimplePlanVisitor<ImmutableSet.Builder<Integer>>
+        private static final class CacheKeyBuilder
+                extends SimplePlanVisitor<Void>
         {
+            ImmutableSet.Builder<Integer> groupIds = ImmutableSet.builder();
+            ImmutableSet.Builder<JoinNode.EquiJoinClause> criteria = ImmutableSet.builder();
+            ImmutableSet.Builder<Expression> filters = ImmutableSet.builder();
+
             @Override
-            public Void visitGroupReference(GroupReference node, ImmutableSet.Builder<Integer> groupIds)
+            public Void visitGroupReference(GroupReference node, Void context)
             {
                 groupIds.add(node.getGroupId());
                 return null;
             }
-        }
 
-        private static final class CriteriaCollector
-                extends SimplePlanVisitor<ImmutableSet.Builder<JoinNode.EquiJoinClause>>
-        {
             @Override
-            public Void visitJoin(JoinNode node, ImmutableSet.Builder<JoinNode.EquiJoinClause> criteria)
+            public Void visitJoin(JoinNode node, Void context)
             {
-                super.visitPlan(node, criteria);
+                super.visitPlan(node, context);
                 criteria.addAll(node.getCriteria());
-                return null;
-            }
-        }
-
-        private static final class FilterCollector
-                extends SimplePlanVisitor<ImmutableSet.Builder<Expression>>
-        {
-            @Override
-            public Void visitJoin(JoinNode node, ImmutableSet.Builder<Expression> filters)
-            {
-                super.visitPlan(node, filters);
                 node.getFilter().ifPresent(filters::add);
                 return null;
+            }
+
+            public CacheKey build()
+            {
+                return new CacheKey(groupIds.build(), criteria.build(), filters.build());
             }
         }
 
