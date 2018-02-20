@@ -101,7 +101,7 @@ public class RuleAssert
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, statsCalculator, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, ruleApplication.types, metadata, ruleApplication.statsProvider, session, 2))));
         }
     }
 
@@ -137,7 +137,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, statsCalculator, new Plan(actual, types), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types), ruleApplication.lookup, pattern);
             return null;
         });
     }
@@ -166,7 +166,7 @@ public class RuleAssert
             result = rule.apply(match.value(), match.captures(), context);
         }
 
-        return new RuleApplication(context.getLookup(), context.getSymbolAllocator().getTypes(), result);
+        return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);
     }
 
     private String formatPlan(PlanNode plan, Map<Symbol, Type> types)
@@ -226,12 +226,14 @@ public class RuleAssert
     private static class RuleApplication
     {
         private final Lookup lookup;
+        private final StatsProvider statsProvider;
         private final Map<Symbol, Type> types;
         private final Rule.Result result;
 
-        public RuleApplication(Lookup lookup, Map<Symbol, Type> types, Rule.Result result)
+        public RuleApplication(Lookup lookup, StatsProvider statsProvider, Map<Symbol, Type> types, Rule.Result result)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
+            this.statsProvider = requireNonNull(statsProvider, "statsProvider is null");
             this.types = requireNonNull(types, "types is null");
             this.result = requireNonNull(result, "result is null");
         }

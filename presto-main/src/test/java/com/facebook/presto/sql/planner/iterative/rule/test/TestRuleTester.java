@@ -26,7 +26,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.ex
 
 public class TestRuleTester
 {
-    @Test(expectedExceptions = AssertionError.class, expectedExceptionsMessageRegExp = "Plan does not match, expected (?s.*) but found")
+    @Test(expectedExceptions = AssertionError.class, expectedExceptionsMessageRegExp = "Plan does not match, expected .* but found .*")
     public void testReportWrongMatch()
     {
         try (RuleTester tester = new RuleTester()) {

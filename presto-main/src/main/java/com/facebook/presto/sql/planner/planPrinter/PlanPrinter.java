@@ -147,16 +147,21 @@ public class PlanPrinter
 
     private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, int indent, boolean verbose)
     {
+        this(plan, types, metadata, new CachingStatsProvider(statsCalculator, session, types), session, indent, verbose);
+    }
+
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsProvider statsProvider, Session session, int indent, boolean verbose)
+    {
         requireNonNull(plan, "plan is null");
         requireNonNull(types, "types is null");
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(statsCalculator, "statsCalculator is null");
+        requireNonNull(statsProvider, "statsProvider is null");
 
         this.metadata = metadata;
         this.stats = Optional.empty();
         this.verbose = verbose;
 
-        Visitor visitor = new Visitor(statsCalculator, types, session);
+        Visitor visitor = new Visitor(statsProvider, types, session);
         plan.accept(visitor, indent);
     }
 
@@ -171,7 +176,8 @@ public class PlanPrinter
         this.stats = Optional.of(stats);
         this.verbose = verbose;
 
-        Visitor visitor = new Visitor(statsCalculator, types, session);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+        Visitor visitor = new Visitor(statsProvider, types, session);
         plan.accept(visitor, indent);
     }
 
@@ -189,6 +195,11 @@ public class PlanPrinter
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, int indent)
     {
         return textLogicalPlan(plan, types, metadata, statsCalculator, session, indent, false);
+    }
+
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsProvider statsProvider, Session session, int indent)
+    {
+        return new PlanPrinter(plan, types, metadata, statsProvider, session, indent, false).toString();
     }
 
     public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, StatsCalculator statsCalculator, Session session, int indent, boolean verbose)
@@ -524,10 +535,10 @@ public class PlanPrinter
         private final Session session;
 
         @SuppressWarnings("AssignmentToCollectionOrArrayFieldFromParameter")
-        public Visitor(StatsCalculator statsCalculator, Map<Symbol, Type> types, Session session)
+        public Visitor(StatsProvider statsProvider, Map<Symbol, Type> types, Session session)
         {
             this.types = types;
-            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            this.statsProvider = statsProvider;
             this.session = session;
         }
 
