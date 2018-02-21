@@ -44,12 +44,13 @@ public class TestDistributedSort
         ImmutableList<Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", ASCENDING, LAST));
         assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey", distributedSortNoRedistribution(), false,
                 output(
-                        exchange(REMOTE, GATHER, orderBy,
-                                exchange(LOCAL, GATHER, orderBy,
-                                        sort(orderBy,
-                                                exchange(LOCAL, REPARTITION,
-                                                        tableScan("orders", ImmutableMap.of(
-                                                                "ORDERKEY", "orderkey"))))))));
+                        exchange(LOCAL, GATHER, orderBy,
+                                exchange(REMOTE, GATHER, orderBy,
+                                        exchange(LOCAL, GATHER, orderBy,
+                                                sort(orderBy,
+                                                        exchange(LOCAL, REPARTITION,
+                                                                tableScan("orders", ImmutableMap.of(
+                                                                        "ORDERKEY", "orderkey")))))))));
     }
 
     @Test
@@ -58,12 +59,13 @@ public class TestDistributedSort
         ImmutableList<Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
         assertPlanWithSession("SELECT orderkey FROM orders ORDER BY orderkey DESC", distributedSortWithRedistribution(), false,
                 output(
-                        exchange(REMOTE, GATHER, orderBy,
-                                exchange(LOCAL, GATHER, orderBy,
-                                        sort(orderBy,
-                                                exchange(REMOTE, REPARTITION,
-                                                        tableScan("orders", ImmutableMap.of(
-                                                                "ORDERKEY", "orderkey"))))))));
+                        exchange(LOCAL, GATHER, orderBy,
+                                exchange(REMOTE, GATHER, orderBy,
+                                        exchange(LOCAL, GATHER, orderBy,
+                                                sort(orderBy,
+                                                        exchange(REMOTE, REPARTITION,
+                                                                tableScan("orders", ImmutableMap.of(
+                                                                        "ORDERKEY", "orderkey")))))))));
     }
 
     @Test
