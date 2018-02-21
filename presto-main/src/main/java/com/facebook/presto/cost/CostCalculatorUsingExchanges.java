@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -110,19 +111,19 @@ public class CostCalculatorUsingExchanges
         public PlanNodeCostEstimate visitTableScan(TableScanNode node, Void context)
         {
             // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
-            return cpuCost(getStats(node).getOutputSizeInBytes());
+            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
         }
 
         @Override
         public PlanNodeCostEstimate visitFilter(FilterNode node, Void context)
         {
-            return cpuCost(getStats(node.getSource()).getOutputSizeInBytes());
+            return cpuCost(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputSymbols()));
         }
 
         @Override
         public PlanNodeCostEstimate visitProject(ProjectNode node, Void context)
         {
-            return cpuCost(getStats(node).getOutputSizeInBytes());
+            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
         }
 
         @Override
@@ -130,8 +131,8 @@ public class CostCalculatorUsingExchanges
         {
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
-            double cpuCost = sourceStats.getOutputSizeInBytes();
-            double memoryCost = aggregationStats.getOutputSizeInBytes();
+            double cpuCost = sourceStats.getOutputSizeInBytes(node.getOutputSymbols());
+            double memoryCost = aggregationStats.getOutputSizeInBytes(node.getOutputSymbols());
             return new PlanNodeCostEstimate(cpuCost, memoryCost, 0);
         }
 
@@ -153,17 +154,17 @@ public class CostCalculatorUsingExchanges
             PlanNodeStatsEstimate buildStats = getStats(build);
             PlanNodeStatsEstimate outputStats = getStats(join);
 
-            double cpuCost = probeStats.getOutputSizeInBytes() +
-                    buildStats.getOutputSizeInBytes() * numberOfNodesMultiplier +
-                    outputStats.getOutputSizeInBytes();
+            double cpuCost = probeStats.getOutputSizeInBytes(probe.getOutputSymbols()) +
+                    buildStats.getOutputSizeInBytes(build.getOutputSymbols()) * numberOfNodesMultiplier +
+                    outputStats.getOutputSizeInBytes(join.getOutputSymbols());
 
             if (replicated) {
                 // add the cost of a local repartitioning of build side copies
                 // cost of the repartitioning of a single data copy has been already added in calculateExchangeCost
-                cpuCost += buildStats.getOutputSizeInBytes() * (numberOfNodesMultiplier - 1);
+                cpuCost += buildStats.getOutputSizeInBytes(build.getOutputSymbols()) * (numberOfNodesMultiplier - 1);
             }
 
-            double memoryCost = buildStats.getOutputSizeInBytes() * numberOfNodesMultiplier;
+            double memoryCost = buildStats.getOutputSizeInBytes(build.getOutputSymbols()) * numberOfNodesMultiplier;
 
             return new PlanNodeCostEstimate(cpuCost, memoryCost, 0);
         }
@@ -171,7 +172,7 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanNodeCostEstimate visitExchange(ExchangeNode node, Void context)
         {
-            return calculateExchangeCost(numberOfNodes, getStats(node), node.getType(), node.getScope());
+            return calculateExchangeCost(numberOfNodes, node.getOutputSymbols(), getStats(node), node.getType(), node.getScope());
         }
 
         @Override
@@ -203,7 +204,7 @@ public class CostCalculatorUsingExchanges
             // so proper cost estimation is not that important. Second, since LimitNode can lead to incomplete evaluation
             // of the source, true cost estimation should be implemented as a "constraint" enforced on a sub-tree and
             // evaluated in context of actual source node type (and their sources).
-            return cpuCost(getStats(node).getOutputSizeInBytes());
+            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols()));
         }
 
         private PlanNodeStatsEstimate getStats(PlanNode node)
@@ -212,21 +213,21 @@ public class CostCalculatorUsingExchanges
         }
     }
 
-    public static PlanNodeCostEstimate calculateExchangeCost(int numberOfNodes, PlanNodeStatsEstimate exchangeStats, ExchangeNode.Type type, ExchangeNode.Scope scope)
+    public static PlanNodeCostEstimate calculateExchangeCost(int numberOfNodes, Collection<Symbol> symbols, PlanNodeStatsEstimate exchangeStats, ExchangeNode.Type type, ExchangeNode.Scope scope)
     {
         double network;
         double cpu = 0;
 
         switch (type) {
             case GATHER:
-                network = exchangeStats.getOutputSizeInBytes();
+                network = exchangeStats.getOutputSizeInBytes(symbols);
                 break;
             case REPARTITION:
-                network = exchangeStats.getOutputSizeInBytes();
-                cpu = exchangeStats.getOutputSizeInBytes();
+                network = exchangeStats.getOutputSizeInBytes(symbols);
+                cpu = exchangeStats.getOutputSizeInBytes(symbols);
                 break;
             case REPLICATE:
-                network = exchangeStats.getOutputSizeInBytes() * numberOfNodes;
+                network = exchangeStats.getOutputSizeInBytes(symbols) * numberOfNodes;
                 break;
             default:
                 throw new UnsupportedOperationException(format("Unsupported type [%s] of the exchange", type));

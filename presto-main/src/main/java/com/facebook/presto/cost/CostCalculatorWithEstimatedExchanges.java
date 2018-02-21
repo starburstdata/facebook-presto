@@ -121,11 +121,13 @@ public class CostCalculatorWithEstimatedExchanges
         {
             PlanNodeCostEstimate remoteRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                     numberOfNodes,
+                    node.getOutputSymbols(),
                     getStats(node.getSource()),
                     REPARTITION,
                     REMOTE);
             PlanNodeCostEstimate localRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                     numberOfNodes,
+                    node.getOutputSymbols(),
                     getStats(node.getSource()),
                     REPARTITION,
                     LOCAL);
@@ -155,12 +157,14 @@ public class CostCalculatorWithEstimatedExchanges
             if (replicated) {
                 PlanNodeCostEstimate replicateCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
+                        build.getOutputSymbols(),
                         getStats(build),
                         REPLICATE,
                         REMOTE);
                 // cost of the copies repartitioning is added in CostCalculatorUsingExchanges#calculateJoinCost
                 PlanNodeCostEstimate localRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
+                        build.getOutputSymbols(),
                         getStats(build),
                         REPARTITION,
                         LOCAL);
@@ -169,16 +173,19 @@ public class CostCalculatorWithEstimatedExchanges
             else {
                 PlanNodeCostEstimate probeCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
+                        probe.getOutputSymbols(),
                         getStats(probe),
                         REPARTITION,
                         REMOTE);
                 PlanNodeCostEstimate buildRemoteRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
+                        build.getOutputSymbols(),
                         getStats(build),
                         REPARTITION,
                         REMOTE);
                 PlanNodeCostEstimate buildLocalRepartitionCost = CostCalculatorUsingExchanges.calculateExchangeCost(
                         numberOfNodes,
+                        build.getOutputSymbols(),
                         getStats(build),
                         REPARTITION,
                         LOCAL);
