@@ -56,13 +56,13 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.iterative.rule.MultiJoinNode.toMultiJoinNode;
 import static com.facebook.presto.sql.planner.iterative.rule.PlanEnumeration.INFINITE_COST_RESULT;
-import static com.facebook.presto.sql.planner.iterative.rule.PlanEnumeration.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.plan.Assignments.identity;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -165,15 +165,10 @@ public class ReorderJoins
                         memo.put(multiJoinKey, result);
                         return result;
                     }
-                    if (!result.getCost().equals(INFINITE_COST)) {
-                        planEnumeration.enumerate(result);
-                    }
+                    planEnumeration.enumerate(result);
                 }
 
                 bestResult = planEnumeration.getResult();
-                if (bestResult.getCost().equals(INFINITE_COST)) {
-                    return INFINITE_COST_RESULT;
-                }
                 memo.put(multiJoinKey, bestResult);
             }
             if (bestResult.getPlanNode().isPresent()) {
@@ -246,9 +241,7 @@ public class ReorderJoins
             if (joinConditions.isEmpty()) {
                 return INFINITE_COST_RESULT;
             }
-            List<Expression> joinFilters = joinPredicates.stream()
-                    .filter(predicate -> !isJoinEqualityCondition(predicate))
-                    .collect(toImmutableList());
+            List<Expression> joinFilters = filteredCopy(joinPredicates, predicate -> !isJoinEqualityCondition(predicate));
 
             Set<Symbol> requiredJoinSymbols = ImmutableSet.<Symbol>builder()
                     .addAll(outputSymbols)
@@ -257,24 +250,16 @@ public class ReorderJoins
 
             PlanEnumeration.Result leftResult = getJoinSource(
                     ImmutableList.copyOf(leftSources),
-                    requiredJoinSymbols.stream().filter(leftSymbols::contains).collect(toImmutableList()));
-            if (leftResult.getCost().hasUnknownComponents()) {
-                return UNKNOWN_COST_RESULT;
-            }
-            if (leftResult.getCost().equals(INFINITE_COST)) {
-                return INFINITE_COST_RESULT;
+                    filteredCopy(requiredJoinSymbols, leftSymbols::contains));
+            if (!leftResult.isCostKnown()) {
+                return leftResult;
             }
             PlanNode left = leftResult.getPlanNode().orElseThrow(() -> new IllegalStateException("no planNode present"));
             PlanEnumeration.Result rightResult = getJoinSource(
                     ImmutableList.copyOf(rightSources),
-                    requiredJoinSymbols.stream()
-                            .filter(rightSymbols::contains)
-                            .collect(toImmutableList()));
-            if (rightResult.getCost().hasUnknownComponents()) {
-                return UNKNOWN_COST_RESULT;
-            }
-            if (rightResult.getCost().equals(INFINITE_COST)) {
-                return INFINITE_COST_RESULT;
+                    filteredCopy(requiredJoinSymbols, rightSymbols::contains));
+            if (!rightResult.isCostKnown()) {
+                return rightResult;
             }
             PlanNode right = rightResult.getPlanNode().orElseThrow(() -> new IllegalStateException("no planNode present"));
 
