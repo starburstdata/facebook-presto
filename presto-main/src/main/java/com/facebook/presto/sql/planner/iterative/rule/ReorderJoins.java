@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolsExtractor;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -61,6 +62,7 @@ import static com.facebook.presto.sql.planner.EqualityInference.createEqualityIn
 import static com.facebook.presto.sql.planner.iterative.rule.MultiJoinNode.toMultiJoinNode;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
+import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.Assignments.identity;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -121,7 +123,8 @@ public class ReorderJoins
                 costComparator,
                 context.getIdAllocator(),
                 context.getSession(),
-                multiJoinNode.getFilter());
+                multiJoinNode.getFilter(),
+                context.getLookup());
         JoinEnumerationResult result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
         if (!result.getPlanNode().isPresent()) {
             return Result.empty();
@@ -141,11 +144,12 @@ public class ReorderJoins
         private final Session session;
         private final EqualityInference allInference;
         private final Expression allFilter;
+        private final Lookup lookup;
 
         private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
 
         @VisibleForTesting
-        JoinEnumerator(CostProvider costProvider, CostComparator costComparator, PlanNodeIdAllocator idAllocator, Session session, Expression filter)
+        JoinEnumerator(CostProvider costProvider, CostComparator costComparator, PlanNodeIdAllocator idAllocator, Session session, Expression filter, Lookup lookup)
         {
             this.costProvider = requireNonNull(costProvider, "costProvider is null");
             this.resultOrdering = getResultOrdering(costComparator, session);
@@ -153,6 +157,7 @@ public class ReorderJoins
             this.session = requireNonNull(session, "session is null");
             this.allInference = createEqualityInference(filter);
             this.allFilter = requireNonNull(filter, "filter is null");
+            this.lookup = requireNonNull(lookup, "lookup is null");
         }
 
         private static Ordering<JoinEnumerationResult> getResultOrdering(CostComparator costComparator, Session session)
@@ -377,9 +382,13 @@ public class ReorderJoins
             FeaturesConfig.JoinDistributionType joinDistributionType = getJoinDistributionType(session);
             if (joinDistributionType.canRepartition() && !joinNode.isCrossJoin()) {
                 JoinNode node = joinNode.withDistributionType(PARTITIONED);
-                possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
+                if (!isAtMostScalar(node.getRight(), lookup)) {
+                    possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
+                }
                 node = node.flipChildren();
-                possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
+                if (!isAtMostScalar(node.getRight(), lookup)) {
+                    possibleJoinNodes.add(new JoinEnumerationResult(costProvider.getCumulativeCost(node), Optional.of(node)));
+                }
             }
             if (joinDistributionType.canReplicate()) {
                 JoinNode node = joinNode.withDistributionType(REPLICATED);

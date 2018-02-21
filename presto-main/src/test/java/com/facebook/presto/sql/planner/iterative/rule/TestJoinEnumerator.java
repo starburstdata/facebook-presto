@@ -111,7 +111,8 @@ public class TestJoinEnumerator
                 new CostComparator(1, 1, 1),
                 idAllocator,
                 queryRunner.getDefaultSession(),
-                multiJoinNode.getFilter());
+                multiJoinNode.getFilter(),
+                noLookup());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
         assertFalse(actual.getPlanNode().isPresent());
     }
