@@ -69,7 +69,7 @@ public class DetermineJoinDistributionType
 
     private PlanEnumeration.Result getCostBasedJoin(JoinNode joinNode, Context context)
     {
-        PlanEnumeration planEnumeration = new PlanEnumeration(context.getCostProvider(), costComparator, context.getSession());
+        PlanEnumeration planEnumeration = new PlanEnumeration.Factory(costComparator, context.getCostProvider(), context.getSession()).create();
 
         JoinNode.Type type = joinNode.getType();
         if (shouldRepartition(joinNode, AUTOMATIC, context)) {

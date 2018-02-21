@@ -20,6 +20,7 @@ import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.Ordering;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.cost.PlanNodeCostEstimate.INFINITE_COST;
@@ -36,24 +37,10 @@ public class PlanEnumeration
     private final Ordering<Result> ordering;
     private Result result = INFINITE_COST_RESULT;
 
-    public PlanEnumeration(CostProvider costProvider, CostComparator costComparator, Session session)
+    private PlanEnumeration(CostProvider costProvider, Ordering<Result> ordering)
     {
         this.costProvider = requireNonNull(costProvider, "costProvider is null");
-        this.ordering = getResultOrdering(costComparator, session);
-    }
-
-    private static Ordering<Result> getResultOrdering(CostComparator costComparator, Session session)
-    {
-        requireNonNull(costComparator, "costComparator is null");
-        requireNonNull(session, "session is null");
-        return new Ordering<Result>()
-        {
-            @Override
-            public int compare(Result result1, Result result2)
-            {
-                return costComparator.compare(session, result1.cost, result2.cost);
-            }
-        };
+        this.ordering = requireNonNull(ordering, "ordering is null");
     }
 
     public PlanEnumeration enumerate(PlanNode planNode)
@@ -109,6 +96,44 @@ public class PlanEnumeration
         public boolean isCostKnown()
         {
             return !cost.equals(INFINITE_COST) && !cost.hasUnknownComponents();
+        }
+    }
+
+    public static class Factory
+    {
+        private final CostProvider costProvider;
+        private final Ordering<Result> ordering;
+
+        public Factory(CostComparator costComparator, CostProvider costProvider, Session session)
+        {
+            this.costProvider = requireNonNull(costProvider, "costProvider is null");
+            this.ordering = getResultOrdering(costComparator, session);
+        }
+
+        private static Ordering<Result> getResultOrdering(CostComparator costComparator, Session session)
+        {
+            requireNonNull(costComparator, "costComparator is null");
+            requireNonNull(session, "session is null");
+            return new Ordering<Result>()
+            {
+                @Override
+                public int compare(Result result1, Result result2)
+                {
+                    return costComparator.compare(session, result1.cost, result2.cost);
+                }
+            };
+        }
+
+        public PlanEnumeration create()
+        {
+            return new PlanEnumeration(costProvider, ordering);
+        }
+
+        public PlanEnumeration.Result enumerate(PlanNode... planNodes)
+        {
+            PlanEnumeration planEnumeration = create();
+            Arrays.stream(planNodes).forEach(planEnumeration::enumerate);
+            return planEnumeration.getResult();
         }
     }
 }

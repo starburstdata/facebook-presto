@@ -131,24 +131,24 @@ public class ReorderJoins
     @VisibleForTesting
     static class JoinEnumerator
     {
-        private final CostProvider costProvider;
-        private final CostComparator costComparator;
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final EqualityInference allInference;
         private final Expression allFilter;
 
         private final Map<Set<PlanNode>, PlanEnumeration.Result> memo = new HashMap<>();
+        private final PlanEnumeration.Factory planEnumerationFactory;
 
         @VisibleForTesting
         JoinEnumerator(CostProvider costProvider, CostComparator costComparator, PlanNodeIdAllocator idAllocator, Session session, Expression filter)
         {
-            this.costProvider = requireNonNull(costProvider, "costProvider is null");
-            this.costComparator = requireNonNull(costComparator, "costComparator is null");
+            requireNonNull(costProvider, "costProvider is null");
+            requireNonNull(costComparator, "costComparator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");
             this.allInference = createEqualityInference(filter);
             this.allFilter = requireNonNull(filter, "filter is null");
+            this.planEnumerationFactory = new PlanEnumeration.Factory(costComparator, costProvider, session);
         }
 
         private PlanEnumeration.Result chooseJoinOrder(List<PlanNode> sources, List<Symbol> outputSymbols)
@@ -157,7 +157,7 @@ public class ReorderJoins
             PlanEnumeration.Result bestResult = memo.get(multiJoinKey);
             if (bestResult == null) {
                 checkState(sources.size() > 1, "sources size is less than or equal to one");
-                PlanEnumeration planEnumeration = getPlanEnumeration();
+                PlanEnumeration planEnumeration = planEnumerationFactory.create();
                 Set<Set<Integer>> partitions = generatePartitions(sources.size()).collect(toImmutableSet());
                 for (Set<Integer> partition : partitions) {
                     PlanEnumeration.Result result = createJoinAccordingToPartitioning(sources, outputSymbols, partition);
@@ -291,7 +291,7 @@ public class ReorderJoins
 
             if (!joinOutputSymbols.equals(sortedOutputSymbols)) {
                 PlanNode resultNode = new ProjectNode(idAllocator.getNextId(), result.getPlanNode().get(), identity(sortedOutputSymbols));
-                result = getPlanEnumeration().enumerate(resultNode).getResult();
+                result = planEnumerationFactory.enumerate(resultNode);
             }
 
             return result;
@@ -312,7 +312,7 @@ public class ReorderJoins
                 if (!(TRUE_LITERAL).equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
                 }
-                return getPlanEnumeration().enumerate(planNode).getResult();
+                return planEnumerationFactory.enumerate(planNode);
             }
             return chooseJoinOrder(nodes, outputSymbols);
         }
@@ -337,7 +337,7 @@ public class ReorderJoins
         {
             // TODO avoid stat (but not cost) recalculation for all considered (distribution,flip) pairs, since resulting relation is the same in all case
 
-            PlanEnumeration planEnumeration = getPlanEnumeration();
+            PlanEnumeration planEnumeration = planEnumerationFactory.create();
             FeaturesConfig.JoinDistributionType joinDistributionType = getJoinDistributionType(session);
             if (joinDistributionType.canRepartition() && !joinNode.isCrossJoin()) {
                 JoinNode node = joinNode.withDistributionType(PARTITIONED);
@@ -350,11 +350,6 @@ public class ReorderJoins
                 planEnumeration.enumerate(node.flipChildren());
             }
             return planEnumeration.getResult();
-        }
-
-        private PlanEnumeration getPlanEnumeration()
-        {
-            return new PlanEnumeration(costProvider, costComparator, session);
         }
     }
 }
