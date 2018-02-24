@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
-import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -58,8 +57,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -80,7 +77,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseTime;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -179,40 +175,14 @@ public final class LiteralInterpreter
         }
 
         if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
             String string;
             if (isShortDecimal(type)) {
-                string = Decimals.toString((long) object, decimalType.getScale());
+                string = Decimals.toString((long) object, ((DecimalType) type).getScale());
             }
             else {
-                string = Decimals.toString((Slice) object, decimalType.getScale());
+                string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
             }
-            Matcher matcher = Pattern.compile("(-?)(\\d+)((\\.)(\\d+))?").matcher(string);
-            verify(matcher.matches());
-            String sign = matcher.group(1);
-            String beforeDot = matcher.group(2);
-            String dot = matcher.group(4);
-            String afterDot = matcher.group(5);
-
-            if (decimalType.getPrecision() > decimalType.getScale()) {
-                verify(beforeDot.length() <= (decimalType.getPrecision() - decimalType.getScale()));
-                beforeDot = Strings.repeat("0", decimalType.getPrecision() - decimalType.getScale() - beforeDot.length()) + beforeDot;
-
-                verify(decimalType.getScale() == 0 || (dot != null && afterDot != null));
-                if (decimalType.getScale() > 0) {
-                    verify(afterDot.length() <= decimalType.getScale());
-                    afterDot = afterDot + Strings.repeat("0", decimalType.getScale() - afterDot.length());
-                }
-
-                string = sign + beforeDot;
-                if (decimalType.getScale() > 0) {
-                    string += dot + afterDot;
-                }
-                return new DecimalLiteral(string);
-            }
-            else {
-                // TODO
-            }
+            return new Cast(new DecimalLiteral(string), type.getDisplayName());
         }
 
         if (type instanceof VarcharType) {
@@ -300,7 +270,7 @@ public final class LiteralInterpreter
         @Override
         protected Object visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
         {
-            return Decimals.parseIncludeLeadingZerosInPrecision(node.getValue()).getObject();
+            return Decimals.parse(node.getValue()).getObject();
         }
 
         @Override

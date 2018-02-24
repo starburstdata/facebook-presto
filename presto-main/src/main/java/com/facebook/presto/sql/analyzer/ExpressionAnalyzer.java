@@ -660,7 +660,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDecimalLiteral(DecimalLiteral node, StackableAstVisitorContext<Context> context)
         {
-            DecimalParseResult parseResult = Decimals.parseIncludeLeadingZerosInPrecision(node.getValue());
+            DecimalParseResult parseResult = Decimals.parse(node.getValue());
             return setExpressionType(node, parseResult.getType());
         }
 

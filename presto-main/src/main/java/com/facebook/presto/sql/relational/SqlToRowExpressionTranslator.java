@@ -216,7 +216,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitDecimalLiteral(DecimalLiteral node, Void context)
         {
-            DecimalParseResult parseResult = Decimals.parseIncludeLeadingZerosInPrecision(node.getValue());
+            DecimalParseResult parseResult = Decimals.parse(node.getValue());
             return constant(parseResult.getObject(), parseResult.getType());
         }
 
