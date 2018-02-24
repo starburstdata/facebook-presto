@@ -300,7 +300,7 @@ public final class LiteralInterpreter
         @Override
         protected Object visitDecimalLiteral(DecimalLiteral node, ConnectorSession context)
         {
-            return Decimals.parse(node.getValue()).getObject();
+            return Decimals.parseIncludeLeadingZerosInPrecision(node.getValue()).getObject();
         }
 
         @Override
