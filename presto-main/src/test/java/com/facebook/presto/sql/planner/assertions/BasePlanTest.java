@@ -42,6 +42,8 @@ import static java.util.stream.Collectors.toList;
 
 public class BasePlanTest
 {
+    private final String schema;
+    private final boolean predicatePushdownEnabled;
     private final Map<String, String> sessionProperties;
 
     private LocalQueryRunner queryRunner;
@@ -53,6 +55,13 @@ public class BasePlanTest
 
     public BasePlanTest(Map<String, String> sessionProperties)
     {
+        this("sf1.0", true, sessionProperties);
+    }
+
+    public BasePlanTest(String schema, boolean predicatePushdownEnabled, Map<String, String> sessionProperties)
+    {
+        this.schema = schema;
+        this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
     }
 
@@ -61,7 +70,7 @@ public class BasePlanTest
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
-                .setSchema("sf1.0")
+                .setSchema(schema)
                 .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
@@ -69,7 +78,7 @@ public class BasePlanTest
         queryRunner = createQueryRunner(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(1),
+                new TpchConnectorFactory(1, predicatePushdownEnabled),
                 ImmutableMap.of());
     }
 
@@ -161,7 +170,10 @@ public class BasePlanTest
     protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
     {
         try {
-            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode));
+            return queryRunner.inTransaction(transactionSession -> {
+                Plan plan = queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode);
+                return plan;
+            });
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
