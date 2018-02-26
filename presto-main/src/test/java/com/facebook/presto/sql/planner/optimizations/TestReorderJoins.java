@@ -33,6 +33,8 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -120,10 +122,12 @@ public class TestReorderJoins
                         "ORDER BY o.orderpriority",
                 new Join(
                         INNER,
-                        Optional.empty(),
+                        REPLICATED,
+                        false,
                         new Join(
                                 LEFT,
-                                Optional.empty(),
+                                REPLICATED,
+                                false,
                                 tableScan("orders"),
                                 tableScan("lineitem")),
                         new Values()));
@@ -366,8 +370,6 @@ public class TestReorderJoins
                         "AND s.nationkey = n.nationkey  " +
                         "AND n.name = 'GERMANY')",
                 new Join(
-                        INNER,
-                        Optional.empty(),
                         new Join(
                                 tableScan("partsupp"),
                                 new Join(
@@ -666,11 +668,8 @@ public class TestReorderJoins
                                 tableScan("supplier"),
                                 tableScan("nation")),
                         new Join(
-                                INNER,
-                                Optional.empty(),
                                 new Join(
                                         LEFT,
-                                        Optional.empty(),
                                         new SemiJoin(
                                                 tableScan("partsupp"),
                                                 tableScan("part")),
@@ -720,16 +719,10 @@ public class TestReorderJoins
                         "s.name",
                 new Join(
                         LEFT,
-                        Optional.empty(),
                         new Join(
                                 LEFT,
-                                Optional.empty(),
                                 new Join(
-                                        INNER,
-                                        Optional.empty(),
                                         new Join(
-                                                INNER,
-                                                Optional.empty(),
                                                 new Join(
                                                         tableScan("lineitem"),
                                                         tableScan("supplier")),
@@ -777,14 +770,9 @@ public class TestReorderJoins
                         "GROUP BY  " +
                         "cntrycode",
                 new Join(
-                        INNER,
-                        Optional.empty(),
                         new Join(
                                 LEFT,
-                                Optional.empty(),
                                 new Join(
-                                        INNER,
-                                        Optional.empty(),
                                         tableScan("customer"),
                                         tableScan("customer")),
                                 tableScan("orders")),
@@ -822,12 +810,21 @@ public class TestReorderJoins
         @Override
         public Void visitJoin(JoinNode node, Integer indent)
         {
-            stringBuilder.append(indentString(indent))
-                    .append("join (")
-                    .append(node.getType())
-                    .append(", ")
-                    .append(node.getDistributionType().map(JoinNode.DistributionType::toString).orElse("unknown"))
-                    .append("):\n");
+            JoinNode.DistributionType distributionType = node.getDistributionType()
+                    .orElseThrow(() -> new IllegalStateException("Expected distribution type to be present"));
+            if (node.isCrossJoin()) {
+                checkState(node.getType() == INNER && distributionType == REPLICATED, "Expected CROSS join to be INNER REPLICATED");
+                stringBuilder.append(indentString(indent))
+                        .append("cross join:\n");
+            }
+            else {
+                stringBuilder.append(indentString(indent))
+                        .append("join (")
+                        .append(node.getType())
+                        .append(", ")
+                        .append(distributionType)
+                        .append("):\n");
+            }
 
             return visitPlan(node, indent + 1);
         }
@@ -879,11 +876,17 @@ public class TestReorderJoins
         }
     }
 
+    private Join crossJoin(Node left, Node right)
+    {
+        return new Join(INNER, REPLICATED, true, left, right);
+    }
+
     private static class Join
             implements Node
     {
         private final JoinNode.Type type;
-        private final Optional<JoinNode.DistributionType> distributionType;
+        private final JoinNode.DistributionType distributionType;
+        private final boolean isCrossJoin;
         private final Node left;
         private final Node right;
 
@@ -892,29 +895,49 @@ public class TestReorderJoins
             this(REPLICATED, left, right);
         }
 
-        private Join(JoinNode.DistributionType distributionType, Node left, Node right)
+        private Join(JoinNode.Type type, Node left, Node right)
         {
-            this(INNER, Optional.of(distributionType), left, right);
+            this(INNER, REPLICATED, false, left, right);
         }
 
-        private Join(JoinNode.Type type, Optional<JoinNode.DistributionType> distributionType, Node left, Node right)
+        private Join(JoinNode.DistributionType distributionType, Node left, Node right)
         {
-            this.left = requireNonNull(left, "left is null");
-            this.right = requireNonNull(right, "right is null");
+            this(INNER, distributionType, false, left, right);
+        }
+
+        private Join(JoinNode.Type type, JoinNode.DistributionType distributionType, Node left, Node right)
+        {
+            this(type, distributionType, false, left, right);
+
+        }
+
+        private Join(JoinNode.Type type, JoinNode.DistributionType distributionType, boolean isCrossJoin, Node left, Node right)
+        {
+            if (isCrossJoin) {
+                checkArgument(distributionType == REPLICATED && type == INNER, "Cross join can only accept INNER REPLICATED join");
+            }
             this.type = requireNonNull(type, "type is null");
             this.distributionType = requireNonNull(distributionType, "distributionType is null");
+            this.isCrossJoin = isCrossJoin;
+            this.left = requireNonNull(left, "left is null");
+            this.right = requireNonNull(right, "right is null");
         }
 
         @Override
         public void print(StringBuilder stringBuilder, int indent)
         {
-            stringBuilder.append(indentString(indent))
-                    .append("join (")
-                    .append(type)
-                    .append(", ")
-                    .append(distributionType.map(JoinNode.DistributionType::toString)
-                            .orElse("unknown"))
-                    .append("):\n");
+            if (isCrossJoin) {
+                stringBuilder.append(indentString(indent))
+                        .append("cross join:\n");
+            }
+            else {
+                stringBuilder.append(indentString(indent))
+                        .append("join (")
+                        .append(type)
+                        .append(", ")
+                        .append(distributionType)
+                        .append("):\n");
+            }
 
             left.print(stringBuilder, indent + 1);
             right.print(stringBuilder, indent + 1);
