@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -75,7 +77,10 @@ public class DetermineJoinDistributionType
         if (shouldRepartition(joinNode, AUTOMATIC, context)) {
             JoinNode possibleJoinNode = joinNode.withDistributionType(PARTITIONED);
             planEnumeration.enumerate(possibleJoinNode);
-            planEnumeration.enumerate(possibleJoinNode.flipChildren());
+
+            if (SystemSessionProperties.getJoinReorderingStrategy(context.getSession()) == COST_BASED) {
+                planEnumeration.enumerate(possibleJoinNode.flipChildren());
+            }
         }
 
         if (type != FULL) {
@@ -84,9 +89,11 @@ public class DetermineJoinDistributionType
                 planEnumeration.enumerate(joinNode.withDistributionType(REPLICATED));
             }
 
-            // Don't flip LEFT OUTER JOIN, as RIGHT OUTER JOIN only works with hash partitioned data.
-            if (type != LEFT) {
-                planEnumeration.enumerate(joinNode.flipChildren().withDistributionType(REPLICATED));
+            if (SystemSessionProperties.getJoinReorderingStrategy(context.getSession()) == COST_BASED) {
+                // Don't flip LEFT OUTER JOIN, as RIGHT OUTER JOIN only works with hash partitioned data.
+                if (type != LEFT) {
+                    planEnumeration.enumerate(joinNode.flipChildren().withDistributionType(REPLICATED));
+                }
             }
         }
 
