@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.SymbolStatsEstimate;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
@@ -32,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -427,6 +429,7 @@ public class TestDetermineJoinDistributionType
     {
         tester.assertThat(new DetermineJoinDistributionType(new CostComparator(75, 10, 15)))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.COST_BASED.name())
                 .withStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
@@ -438,6 +441,36 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 RIGHT,
+                                p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
+                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
+                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
+                                Optional.empty()))
+                .matches(join(
+                        LEFT,
+                        ImmutableList.of(equiJoinClause("A1", "B1")),
+                        Optional.empty(),
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testReplicatesLeftOuter()
+    {
+        tester.assertThat(new DetermineJoinDistributionType(new CostComparator(75, 10, 15)))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .withStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(10)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .withStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1000000)
+                        .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .on(p ->
+                        p.join(
+                                LEFT,
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), p.symbol("B1", BIGINT)),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
