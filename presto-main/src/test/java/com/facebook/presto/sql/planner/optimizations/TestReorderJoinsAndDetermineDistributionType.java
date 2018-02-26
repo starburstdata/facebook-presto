@@ -39,10 +39,10 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
-public class TestReorderJoins
+public class TestReorderJoinsAndDetermineDistributionType
         extends BasePlanTest
 {
-    public TestReorderJoins()
+    public TestReorderJoinsAndDetermineDistributionType()
     {
         super(ImmutableMap.of(
                 SystemSessionProperties.JOIN_REORDERING_STRATEGY, "COST_BASED",
