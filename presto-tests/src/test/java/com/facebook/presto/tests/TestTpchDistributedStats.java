@@ -21,10 +21,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.absoluteError;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.defaultTolerance;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.noError;
-import static com.facebook.presto.tests.statistics.MetricComparisonStrategies.relativeError;
+import static com.facebook.presto.tests.statistics.MetricAssertStrategies.absoluteError;
+import static com.facebook.presto.tests.statistics.MetricAssertStrategies.defaultTolerance;
+import static com.facebook.presto.tests.statistics.MetricAssertStrategies.noError;
+import static com.facebook.presto.tests.statistics.MetricAssertStrategies.relativeError;
 import static com.facebook.presto.tests.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunnerWithoutCatalogs;
 import static java.util.Collections.emptyMap;
