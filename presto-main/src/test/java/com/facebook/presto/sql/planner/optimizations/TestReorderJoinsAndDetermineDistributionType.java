@@ -91,25 +91,32 @@ public class TestReorderJoinsAndDetermineDistributionType
                                 RIGHT,
                                 PARTITIONED,
                                 new Join(
+                                        INNER,
                                         REPLICATED,
                                         tableScan("partsupp"),
                                         new Join(
+                                                INNER,
                                                 REPLICATED,
                                                 tableScan("supplier"),
                                                 new Join(
+                                                        INNER,
                                                         REPLICATED,
                                                         tableScan("nation"),
                                                         tableScan("region")))),
                                 new Join(
+                                        INNER,
                                         PARTITIONED,
                                         new Join(
+                                                INNER,
                                                 REPLICATED,
                                                 tableScan("partsupp"),
                                                 tableScan("part")),
                                         new Join(
+                                                INNER,
                                                 REPLICATED,
                                                 tableScan("supplier"),
                                                 new Join(
+                                                        INNER,
                                                         REPLICATED,
                                                         tableScan("nation"),
                                                         tableScan("region"))))),
@@ -133,8 +140,12 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "GROUP BY l.orderkey, o.orderdate, o.shippriority " +
                         "ORDER BY revenue DESC, o.orderdate LIMIT 10",
                 new Join(
+                        INNER,
+                        REPLICATED,
                         tableScan("lineitem"),
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("orders"),
                                 tableScan("customer"))));
     }
@@ -194,14 +205,23 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "ORDER BY " +
                         "  revenue DESC ",
                 new Join(
+                        INNER,
+                        REPLICATED,
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("lineitem"),
                                 new Join(
+                                        INNER,
                                         PARTITIONED,
                                         tableScan("orders"),
                                         new Join(
+                                                INNER,
+                                                REPLICATED,
                                                 tableScan("customer"),
                                                 new Join(
+                                                        INNER,
+                                                        REPLICATED,
                                                         tableScan("nation"),
                                                         tableScan("region"))))),
                         tableScan("supplier")));
@@ -243,15 +263,24 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "GROUP BY supp_nation, cust_nation, l_year " +
                         "ORDER BY supp_nation, cust_nation, l_year",
                 new Join(
+                        INNER,
                         PARTITIONED,
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("lineitem"),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("supplier"),
                                         tableScan("nation"))),
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("orders"),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("customer"),
                                         tableScan("nation")))));
     }
@@ -290,20 +319,33 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "GROUP BY o_year " +
                         "ORDER BY o_year",
                 new Join(
+                        INNER,
                         PARTITIONED,
                         new Join(
+                                INNER,
                                 PARTITIONED,
+
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("orders"),
                                         new Join(
+                                                INNER,
+                                                REPLICATED,
                                                 tableScan("customer"),
                                                 new Join(
+                                                        INNER,
+                                                        REPLICATED,
                                                         tableScan("nation"),
                                                         tableScan("region")))),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("lineitem"),
                                         tableScan("part"))),
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("supplier"),
                                 tableScan("nation"))));
     }
@@ -337,15 +379,24 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "GROUP BY nation, o_year " +
                         "ORDER BY nation, o_year DESC",
                 new Join(
+                        INNER,
+                        REPLICATED,
                         new Join(
+                                INNER,
                                 PARTITIONED,
                                 tableScan("lineitem"),
                                 tableScan("orders")),
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("partsupp"),
                                         tableScan("part")),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("supplier"),
                                         tableScan("nation")))));
     }
@@ -371,11 +422,16 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "ORDER BY revenue DESC " +
                         "LIMIT 20",
                 new Join(
+                        INNER,
                         PARTITIONED,
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("customer"),
                                 tableScan("nation")),
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("lineitem"),
                                 tableScan("orders"))));
     }
@@ -410,13 +466,21 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "ORDER BY value DESC",
                 crossJoin(
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("partsupp"),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("supplier"),
                                         tableScan("nation"))),
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("partsupp"),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("supplier"),
                                         tableScan("nation")))));
     }
@@ -452,6 +516,7 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "GROUP BY l.shipmode " +
                         "ORDER BY l.shipmode",
                 new Join(
+                        INNER,
                         PARTITIONED,
                         tableScan("orders"),
                         tableScan("lineitem")));
@@ -501,6 +566,7 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "  AND l.shipdate >= DATE '1995-09-01'" +
                         "  AND l.shipdate < DATE '1995-09-01' + INTERVAL '1' MONTH",
                 new Join(
+                        INNER,
                         PARTITIONED,
                         tableScan("part"),
                         tableScan("lineitem")));
@@ -528,9 +594,12 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "  AND total_revenue = (SELECT max(total_revenue) FROM revenue0)" +
                         "ORDER BY s.suppkey",
                 new Join(
+                        INNER,
                         PARTITIONED,
                         tableScan("supplier"),
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("lineitem"),
                                 tableScan("lineitem"))));
     }
@@ -558,6 +627,7 @@ public class TestReorderJoinsAndDetermineDistributionType
                 new SemiJoin(
                         PARTITIONED,
                         new Join(
+                                INNER,
                                 PARTITIONED,
                                 tableScan("partsupp"),
                                 tableScan("part")),
@@ -587,6 +657,8 @@ public class TestReorderJoinsAndDetermineDistributionType
                                 PARTITIONED,
                                 tableScan("lineitem"),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("lineitem"),
                                         tableScan("part"))),
                         new Values()));
@@ -616,9 +688,12 @@ public class TestReorderJoinsAndDetermineDistributionType
                 new SemiJoin(
                         PARTITIONED,
                         new Join(
+                                INNER,
                                 PARTITIONED,
                                 tableScan("lineitem"),
                                 new Join(
+                                        INNER,
+                                        REPLICATED,
                                         tableScan("orders"),
                                         tableScan("customer"))),
                         tableScan("lineitem")));
@@ -662,10 +737,11 @@ public class TestReorderJoinsAndDetermineDistributionType
                         "    AND l.shipmode IN ('AIR', 'AIR REG')" +
                         "    AND l.shipinstruct = 'DELIVER IN PERSON'" +
                         "  ))",
-                        new Join(
-                                PARTITIONED,
-                                tableScan("lineitem"),
-                                tableScan("part")));
+                new Join(
+                        INNER,
+                        PARTITIONED,
+                        tableScan("lineitem"),
+                        tableScan("part")));
     }
 
     @Test
@@ -700,6 +776,8 @@ public class TestReorderJoinsAndDetermineDistributionType
                 new SemiJoin(
                         PARTITIONED,
                         new Join(
+                                INNER,
+                                REPLICATED,
                                 tableScan("supplier"),
                                 tableScan("nation")),
                         crossJoin(
@@ -752,10 +830,15 @@ public class TestReorderJoinsAndDetermineDistributionType
                                 LEFT,
                                 PARTITIONED,
                                 new Join(
+                                        INNER,
                                         PARTITIONED,
                                         new Join(
+                                                INNER,
+                                                REPLICATED,
                                                 tableScan("lineitem"),
                                                 new Join(
+                                                        INNER,
+                                                        REPLICATED,
                                                         tableScan("supplier"),
                                                         tableScan("nation"))),
                                         tableScan("orders")),
@@ -909,16 +992,6 @@ public class TestReorderJoinsAndDetermineDistributionType
         private final boolean isCrossJoin;
         private final Node left;
         private final Node right;
-
-        private Join(Node left, Node right)
-        {
-            this(REPLICATED, left, right);
-        }
-
-        private Join(JoinNode.DistributionType distributionType, Node left, Node right)
-        {
-            this(INNER, distributionType, false, left, right);
-        }
 
         private Join(JoinNode.Type type, JoinNode.DistributionType distributionType, Node left, Node right)
         {
