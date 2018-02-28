@@ -42,6 +42,7 @@ import static java.util.stream.Collectors.toList;
 
 public class BasePlanTest
 {
+    private final String schema;
     private final Map<String, String> sessionProperties;
 
     private LocalQueryRunner queryRunner;
@@ -53,6 +54,12 @@ public class BasePlanTest
 
     public BasePlanTest(Map<String, String> sessionProperties)
     {
+        this("sf1.0", sessionProperties);
+    }
+
+    public BasePlanTest(String schema, Map<String, String> sessionProperties)
+    {
+        this.schema = requireNonNull(schema, "schema is null");
         this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
     }
 
@@ -61,21 +68,26 @@ public class BasePlanTest
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
-                .setSchema("sf1.0")
+                .setSchema(schema)
                 .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
         queryRunner = createQueryRunner(sessionBuilder.build());
 
-        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
+        createTpchCatalog(queryRunner);
     }
 
     protected LocalQueryRunner createQueryRunner(Session session)
     {
         return new LocalQueryRunner(session);
+    }
+
+    protected void createTpchCatalog(LocalQueryRunner queryRunner)
+    {
+        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
+                new TpchConnectorFactory(1),
+                ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
