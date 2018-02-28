@@ -60,7 +60,7 @@ public class BasePlanTest
 
     public BasePlanTest(String schema, boolean predicatePushdownEnabled, Map<String, String> sessionProperties)
     {
-        this.schema = schema;
+        this.schema = requireNonNull(schema, "schema is null");
         this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
     }
@@ -170,10 +170,7 @@ public class BasePlanTest
     protected Plan plan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
     {
         try {
-            return queryRunner.inTransaction(transactionSession -> {
-                Plan plan = queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode);
-                return plan;
-            });
+            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);

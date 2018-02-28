@@ -15,7 +15,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
@@ -29,6 +28,10 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -41,8 +44,8 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 /**
- * This class tests Cost-based Optimization rules related to joins, it contains unmodified TPCH queries.
- * This is class is using TPCH connector configured in way to mock Hive connector with not partitioned TPCH tables.
+ * This class tests cost-based optimization rules related to joins. It contains unmodified TPCH queries.
+ * This class is using TPCH connector configured in way to mock Hive connector with unpartitioned TPCH tables.
  */
 public class TestReorderJoinsAndDetermineDistributionType
         extends BasePlanTest
@@ -60,8 +63,8 @@ public class TestReorderJoinsAndDetermineDistributionType
                 "sf3000.0",
                 false,
                 ImmutableMap.of(
-                        SystemSessionProperties.JOIN_REORDERING_STRATEGY, "COST_BASED",
-                        SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, "AUTOMATIC"));
+                        JOIN_REORDERING_STRATEGY, COST_BASED.name(),
+                        JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name()));
     }
 
     @Override
@@ -795,7 +798,6 @@ public class TestReorderJoinsAndDetermineDistributionType
     @Test
     public void testTpchQ21()
     {
-        // TODO: disable projection pushdown in TPCH?
         assertJoinOrder(
                 "SELECT s.name, count(*) as numwait " +
                         "FROM" +
