@@ -666,6 +666,7 @@ public class LocalExecutionPlanner
                     metadata,
                     statsCalculator,
                     costCalculator,
+                    node.getStatsAndCosts(),
                     node.isVerbose());
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
