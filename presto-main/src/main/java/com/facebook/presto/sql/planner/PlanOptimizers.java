@@ -419,6 +419,10 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata.getFunctionRegistry()),
                         new PruneJoinColumns())));
+
+        // One more run of AddLocalExchanges to add RR local exchanges below partial aggregations.
+        builder.add(new AddLocalExchanges(metadata, sqlParser));
+
         builder.add(new IterativeOptimizer(
                 stats,
                 statsCalculator,

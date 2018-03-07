@@ -123,8 +123,8 @@ public class TestEventListener
             throws Exception
     {
         // We expect the following events
-        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
-        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[RR] split + LocalExchange[SINGLE] split + Aggregation/Output split
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1 + 1;
         runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
@@ -142,10 +142,10 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getConnectorId(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
+        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 3);
 
         List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
-        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 2); // leaf splits + aggregation split
+        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 3); // leaf splits + LL[RR] split + LL[SINGLE] split + aggregation split
 
         // All splits must have the same query ID
         Set<String> actual = splitCompletedEvents.stream()
@@ -162,7 +162,7 @@ public class TestEventListener
         MaterializedResult result = runQueryAndWaitForEvents("SELECT count(*) FROM lineitem", expectedEvents);
         long expectedCompletedPositions = (long) result.getMaterializedRows().get(0).getField(0);
 
-        assertEquals(actualCompletedPositions, expectedCompletedPositions);
+        assertEquals(actualCompletedPositions, expectedCompletedPositions * 2);
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), expectedCompletedPositions);
     }
 
@@ -171,8 +171,8 @@ public class TestEventListener
             throws Exception
     {
         // We expect the following events
-        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
-        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[RR] split + LocalExchange[SINGLE] split + Aggregation/Output split
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1 + 1;
         MaterializedResult result = runQueryAndWaitForEvents("SELECT 1 FROM lineitem", expectedEvents);
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
