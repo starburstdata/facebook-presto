@@ -251,7 +251,12 @@ public class AddLocalExchanges
         {
             StreamPreferredProperties requiredProperties;
 
-            checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
+            checkState(node.getStep() != AggregationNode.Step.INTERMEDIATE, "unexpected aggregation step: %s", node.getStep());
+            if (node.getStep() == AggregationNode.Step.PARTIAL) {
+                // require fixed parallelism for partial aggregations so that they are long living and can reduce data more effectively
+                requiredProperties = parentPreferences.withFixedParallelism();
+                return planAndEnforceChildren(node, requiredProperties, requiredProperties);
+            }
 
             // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
             // needs to know whether input was received at the query level.
