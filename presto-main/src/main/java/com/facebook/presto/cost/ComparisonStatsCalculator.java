@@ -176,7 +176,7 @@ public final class ComparisonStatsCalculator
             SymbolStatsEstimate rightStats)
     {
         if (isNaN(leftStats.getDistinctValuesCount()) || isNaN(rightStats.getDistinctValuesCount())) {
-            Optional.empty();
+            return Optional.empty();
         }
 
         StatisticRange leftRange = StatisticRange.from(leftStats);
