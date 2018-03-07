@@ -52,6 +52,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.apply;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -65,6 +66,9 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strict
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
@@ -467,5 +471,18 @@ public class TestLogicalPlanner
                 output(
                         filter("orderkey = BIGINT '5'",
                                 constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderkey", "orderkey")))));
+    }
+
+    @Test
+    public void testAddsRoundRobinLocalExchangeBelowSourcePartialAggregation()
+    {
+        assertPlan(
+                "SELECT sum(orderkey) FROM orders",
+                output(
+                        aggregation(ImmutableMap.of("FINAL_SUM", functionCall("sum", ImmutableList.of("PARTIAL_SUM"))),
+                                exchange(LOCAL, GATHER,
+                                        aggregation(ImmutableMap.of("PARTIAL_SUM", functionCall("sum", ImmutableList.of("ORDERKEY"))),
+                                                exchange(LOCAL, REPARTITION,
+                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))))));
     }
 }
