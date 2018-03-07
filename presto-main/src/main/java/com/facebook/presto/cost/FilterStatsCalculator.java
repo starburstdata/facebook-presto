@@ -56,8 +56,6 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
@@ -143,40 +141,51 @@ public class FilterStatsCalculator
         @Override
         protected Optional<PlanNodeStatsEstimate> visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            Optional<PlanNodeStatsEstimate> leftStats = process(node.getLeft());
-            Optional<PlanNodeStatsEstimate> rightStats = process(node.getRight());
-
-            Optional<PlanNodeStatsEstimate> andStats;
-            if (leftStats.isPresent() && rightStats.isPresent()) {
-                andStats = new FilterExpressionStatsCalculatingVisitor(leftStats.get(), session, types).process(node.getRight());
-            }
-            else if (leftStats.isPresent() && !rightStats.isPresent()) {
-                andStats = leftStats.map(FilterStatsCalculator::filterStatsForUnknownExpression);
-            }
-            else if (!leftStats.isPresent() && rightStats.isPresent()) {
-                andStats = rightStats.map(FilterStatsCalculator::filterStatsForUnknownExpression);
-            }
-            else {
-                andStats = Optional.empty();
-            }
-            if (leftStats.isPresent() && !andStats.isPresent()) {
-                // if we know stats for at least one arg let's use this.
-                andStats = leftStats.map(FilterStatsCalculator::filterStatsForUnknownExpression);
-            }
-
             switch (node.getType()) {
                 case AND:
-                    return andStats;
+                    return visitLogicalBinaryAnd(node.getLeft(), node.getRight());
                 case OR:
-                    if (!leftStats.isPresent() || !rightStats.isPresent()) {
-                        return visitExpression(node, context);
-                    }
-                    checkState(andStats.isPresent(), "Expected andStats to be present");
-                    PlanNodeStatsEstimate sumStats = addStatsAndSumDistinctValues(leftStats.get(), rightStats.get());
-                    return Optional.of(differenceInNonRangeStats(sumStats, andStats.get()));
+                    return visitLogicalBinaryOr(node.getLeft(), node.getRight());
                 default:
                     throw new IllegalStateException("Unimplemented logical binary operator expression " + node.getType());
             }
+        }
+
+        private Optional<PlanNodeStatsEstimate> visitLogicalBinaryAnd(Expression left, Expression right)
+        {
+            Optional<PlanNodeStatsEstimate> leftStats = process(left);
+            if (leftStats.isPresent()) {
+                Optional<PlanNodeStatsEstimate> andStats = new FilterExpressionStatsCalculatingVisitor(leftStats.get(), session, types).process(right);
+                if (andStats.isPresent()) {
+                    return andStats;
+                }
+                return leftStats.map(FilterStatsCalculator::filterStatsForUnknownExpression);
+            }
+
+            Optional<PlanNodeStatsEstimate> rightStats = process(right);
+            return rightStats.map(FilterStatsCalculator::filterStatsForUnknownExpression);
+        }
+
+        private Optional<PlanNodeStatsEstimate> visitLogicalBinaryOr(Expression left, Expression right)
+        {
+            Optional<PlanNodeStatsEstimate> leftStats = process(left);
+            if (!leftStats.isPresent()) {
+                return Optional.empty();
+            }
+
+            Optional<PlanNodeStatsEstimate> rightStats = process(right);
+            if (!rightStats.isPresent()) {
+                return Optional.empty();
+            }
+
+            Optional<PlanNodeStatsEstimate> andStats = new FilterExpressionStatsCalculatingVisitor(leftStats.get(), session, types).process(right);
+            if (!andStats.isPresent()) {
+                // Before the fixup, we would attempt to polly-fill andStats:=leftStats.map(FilterStatsCalculator::filterStatsForUnknownExpression);
+                // but i think it was wrong
+                return Optional.empty();
+            }
+            PlanNodeStatsEstimate sumStats = addStatsAndSumDistinctValues(leftStats.get(), rightStats.get());
+            return Optional.of(differenceInNonRangeStats(sumStats, andStats.get()));
         }
 
         @Override
