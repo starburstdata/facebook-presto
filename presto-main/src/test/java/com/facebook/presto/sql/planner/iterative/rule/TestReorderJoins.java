@@ -44,6 +44,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
@@ -147,7 +148,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty("join_distribution_type", "REPARTITIONED")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, REPARTITIONED.name())
                 .withStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 6400, 100)))
@@ -206,7 +207,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty("join_distribution_type", "REPLICATED")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, REPLICATED.name())
                 .withStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
