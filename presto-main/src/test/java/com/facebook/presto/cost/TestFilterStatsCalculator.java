@@ -246,7 +246,7 @@ public class TestFilterStatsCalculator
                 .symbolStats(new Symbol("y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
-        assertExpression("sin(x) AND x < 0e0")
+        assertExpression("json_array_contains(JSON '[]', x) AND x < 0e0")
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -255,7 +255,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0));
 
         // second argument unknown
-        assertExpression("x < 0e0 AND sin(x)")
+        assertExpression("x < 0e0 AND json_array_contains(JSON '[]', x)")
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -264,7 +264,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0));
 
         // both arguments unknown
-        assertExpression("sin(x) AND cos(x)")
+        assertExpression("json_array_contains(JSON '[11]', x) AND json_array_contains(JSON '[13]', x)")
                 .outputRowsCount(900)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -285,7 +285,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(20.0)
                                 .nullsFraction(0.4)); // FIXME - nulls shouldn't be restored
 
-        assertExpression("NOT(sin(x))")
+        assertExpression("NOT(json_array_contains(JSON '[]', x))")
                 .outputRowsCount(900)
                 .symbolStats(new Symbol("x"), symbolAssert ->
                         symbolAssert.averageRowSize(4.0)
