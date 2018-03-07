@@ -180,8 +180,6 @@ public class FilterStatsCalculator
 
             Optional<PlanNodeStatsEstimate> andStats = new FilterExpressionStatsCalculatingVisitor(leftStats.get(), session, types).process(right);
             if (!andStats.isPresent()) {
-                // Before the fixup, we would attempt to polly-fill andStats:=leftStats.map(FilterStatsCalculator::filterStatsForUnknownExpression);
-                // but i think it was wrong
                 return Optional.empty();
             }
             PlanNodeStatsEstimate sumStats = addStatsAndSumDistinctValues(leftStats.get(), rightStats.get());
