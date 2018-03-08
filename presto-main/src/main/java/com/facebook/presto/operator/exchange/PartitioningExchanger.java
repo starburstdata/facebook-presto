@@ -25,8 +25,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -39,16 +44,20 @@ class PartitioningExchanger
     private final LocalExchangeMemoryManager memoryManager;
     private final LocalPartitionGenerator partitionGenerator;
     private final IntArrayList[] partitionAssignments;
+    private final boolean preferPageCopying;
+    private int startingPartition;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
             LocalExchangeMemoryManager memoryManager,
             List<? extends Type> types,
             List<Integer> partitionChannels,
-            Optional<Integer> hashChannel)
+            Optional<Integer> hashChannel,
+            boolean preferPageCopying)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+        this.preferPageCopying = preferPageCopying;
 
         HashGenerator hashGenerator;
         if (hashChannel.isPresent()) {
@@ -85,18 +94,66 @@ class PartitioningExchanger
         // build a page for each partition
         Block[] sourceBlocks = page.getBlocks();
         Block[] outputBlocks = new Block[sourceBlocks.length];
-        for (int partition = 0; partition < buffers.size(); partition++) {
+        ConcurrentHashMap<Object, AtomicInteger> referenceCountMap = new ConcurrentHashMap<>(
+                page.getChannelCount() * 3,
+                0.75f,
+                buffers.size());
+        for (int partitionCounter = 0; partitionCounter < buffers.size(); partitionCounter++) {
+            int partition = (startingPartition + partitionCounter) % buffers.size();
             IntArrayList positions = partitionAssignments[partition];
+
             if (!positions.isEmpty()) {
+                int[] positionsArray = positions.elements();
+                Map<Object, Long> parts = new HashMap<>();
+
+                if (!preferPageCopying) {
+                    positionsArray = Arrays.copyOf(positionsArray, positions.size());
+                }
+
                 for (int i = 0; i < sourceBlocks.length; i++) {
-                    outputBlocks[i] = sourceBlocks[i].copyPositions(positions.elements(), 0, positions.size());
+                    if (preferPageCopying) {
+                        outputBlocks[i] = sourceBlocks[i].copyPositions(positionsArray, 0, positions.size());
+                    }
+                    else {
+                        outputBlocks[i] = sourceBlocks[i].getPositions(positionsArray, 0, positions.size());
+                        outputBlocks[i].retainedBytesForEachPart(parts::put);
+                    }
                 }
 
                 Page pageSplit = new Page(positions.size(), outputBlocks);
-                memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
-                buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())));
+                incrementPageMemoryUsage(referenceCountMap, parts, page);
+                buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> decrementPageMemoryUsage(referenceCountMap, parts, page)));
             }
         }
+        startingPartition = (startingPartition + 1) % buffers.size();
+    }
+
+    private void incrementPageMemoryUsage(ConcurrentHashMap<Object, AtomicInteger> referenceCountMap, Map<Object, Long> parts, Page page)
+    {
+        if (preferPageCopying) {
+            memoryManager.updateMemoryUsage(page.getRetainedSizeInBytes());
+            return;
+        }
+
+        long size = parts.entrySet().stream()
+                .filter(entry -> referenceCountMap.computeIfAbsent(entry.getKey(), key -> new AtomicInteger()).incrementAndGet() == 1)
+                .mapToLong(Map.Entry::getValue)
+                .sum();
+        memoryManager.updateMemoryUsage(size);
+    }
+
+    private void decrementPageMemoryUsage(ConcurrentHashMap<Object, AtomicInteger> referenceCountMap, Map<Object, Long> parts, Page page)
+    {
+        if (preferPageCopying) {
+            memoryManager.updateMemoryUsage(-page.getRetainedSizeInBytes());
+            return;
+        }
+
+        long size = parts.entrySet().stream()
+                .filter(entry -> referenceCountMap.get(entry.getKey()).decrementAndGet() == 0)
+                .mapToLong(Map.Entry::getValue)
+                .sum();
+        memoryManager.updateMemoryUsage(-size);
     }
 
     @Override

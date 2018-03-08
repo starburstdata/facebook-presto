@@ -83,7 +83,8 @@ public class LocalExchange
             List<? extends Type> types,
             List<Integer> partitionChannels,
             Optional<Integer> partitionHashChannel,
-            DataSize maxBufferedBytes)
+            DataSize maxBufferedBytes,
+            boolean preferPageCopying)
     {
         this.allSinkFactories = Stream.generate(() -> new LocalExchangeSinkFactory(LocalExchange.this))
                 .limit(sinkFactoryCount)
@@ -113,7 +114,7 @@ public class LocalExchange
             exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager);
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
-            exchangerSupplier = () -> new PartitioningExchanger(buffers, memoryManager, types, partitionChannels, partitionHashChannel);
+            exchangerSupplier = () -> new PartitioningExchanger(buffers, memoryManager, types, partitionChannels, partitionHashChannel, preferPageCopying);
         }
         else {
             throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
@@ -261,6 +262,7 @@ public class LocalExchange
         private final Optional<Integer> partitionHashChannel;
         private final PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy;
         private final DataSize maxBufferedBytes;
+        private final boolean preferPageCopying;
         private final int bufferCount;
 
         @GuardedBy("this")
@@ -283,7 +285,7 @@ public class LocalExchange
                 Optional<Integer> partitionHashChannel,
                 PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy)
         {
-            this(partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, exchangeSourcePipelineExecutionStrategy, DEFAULT_MAX_BUFFERED_BYTES);
+            this(partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, exchangeSourcePipelineExecutionStrategy, DEFAULT_MAX_BUFFERED_BYTES, true);
         }
 
         public LocalExchangeFactory(
@@ -293,7 +295,20 @@ public class LocalExchange
                 List<Integer> partitionChannels,
                 Optional<Integer> partitionHashChannel,
                 PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy,
-                DataSize maxBufferedBytes)
+                boolean preferPageCopying)
+        {
+            this(partitioning, defaultConcurrency, types, partitionChannels, partitionHashChannel, exchangeSourcePipelineExecutionStrategy, DEFAULT_MAX_BUFFERED_BYTES, preferPageCopying);
+        }
+
+        public LocalExchangeFactory(
+                PartitioningHandle partitioning,
+                int defaultConcurrency,
+                List<Type> types,
+                List<Integer> partitionChannels,
+                Optional<Integer> partitionHashChannel,
+                PipelineExecutionStrategy exchangeSourcePipelineExecutionStrategy,
+                DataSize maxBufferedBytes,
+                boolean preferPageCopying)
         {
             this.partitioning = requireNonNull(partitioning, "partitioning is null");
             this.types = requireNonNull(types, "types is null");
@@ -301,6 +316,7 @@ public class LocalExchange
             this.partitionHashChannel = requireNonNull(partitionHashChannel, "partitionHashChannel is null");
             this.exchangeSourcePipelineExecutionStrategy = requireNonNull(exchangeSourcePipelineExecutionStrategy, "exchangeSourcePipelineExecutionStrategy is null");
             this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
+            this.preferPageCopying = preferPageCopying;
 
             this.bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
         }
@@ -339,7 +355,7 @@ public class LocalExchange
             return localExchangeMap.computeIfAbsent(lifespan, ignored -> {
                 checkState(noMoreSinkFactories);
                 LocalExchange localExchange =
-                        new LocalExchange(numSinkFactories, bufferCount, partitioning, types, partitionChannels, partitionHashChannel, maxBufferedBytes);
+                        new LocalExchange(numSinkFactories, bufferCount, partitioning, types, partitionChannels, partitionHashChannel, maxBufferedBytes, preferPageCopying);
                 for (LocalExchangeSinkFactoryId closedSinkFactoryId : closedSinkFactories) {
                     localExchange.getSinkFactory(closedSinkFactoryId).close();
                 }
