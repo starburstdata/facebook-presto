@@ -70,7 +70,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                new DataSize(retainedSizeOfPages(99), BYTE));
+                new DataSize(retainedSizeOfPages(99), BYTE),
+                true);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -387,7 +388,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                new DataSize(1, BYTE));
+                new DataSize(1, BYTE),
+                true);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
