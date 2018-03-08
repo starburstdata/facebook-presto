@@ -418,11 +418,12 @@ public class TestLogicalPlanner
                                                 any(
                                                         aggregation(ImmutableMap.of("PARTIAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
                                                                 any(
-                                                                        join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                                                any(
-                                                                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                                                project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                                                        node(ValuesNode.class)))))))))));
+                                                                        any(
+                                                                                join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
+                                                                                        any(
+                                                                                                tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
+                                                                                        project(ImmutableMap.of("NON_NULL", expression("true")),
+                                                                                                node(ValuesNode.class))))))))))));
     }
 
     @Test
