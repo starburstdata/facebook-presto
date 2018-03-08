@@ -17,6 +17,8 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -26,7 +28,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ADAPTIVE_HASH_PASSTHROUGH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.adaptiveParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.deriveProperties;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
@@ -62,7 +65,7 @@ public class AddAdaptiveExchangeBelowPartialAggregation
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
         StreamProperties childProperties = derivePropertiesRecursively(node.getSource(), context);
-        StreamPreferredProperties requiredProperties = fixedParallelism().withPartitioning(node.getGroupingKeys());
+        StreamPreferredProperties requiredProperties = adaptiveParallelism().withPartitioning(node.getGroupingKeys());
 
         if (requiredProperties.isSatisfiedBy(childProperties)) {
             return Result.empty();
@@ -74,8 +77,12 @@ public class AddAdaptiveExchangeBelowPartialAggregation
                                 context.getIdAllocator().getNextId(),
                                 LOCAL,
                                 node.getSource(),
-                                node.getGroupingKeys(),
-                                Optional.empty()))));
+                                new PartitioningScheme(
+                                        Partitioning.create(ADAPTIVE_HASH_PASSTHROUGH_DISTRIBUTION, node.getGroupingKeys()),
+                                        node.getSource().getOutputSymbols(),
+                                        Optional.empty(),
+                                        false,
+                                        Optional.empty())))));
     }
 
     private StreamProperties derivePropertiesRecursively(PlanNode node, Context context)
