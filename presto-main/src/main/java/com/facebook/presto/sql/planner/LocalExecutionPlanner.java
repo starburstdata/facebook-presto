@@ -1002,7 +1002,13 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitAggregation(AggregationNode node, LocalExecutionPlanContext context)
         {
-            PhysicalOperation source = node.getSource().accept(this, context);
+            PhysicalOperation source;
+            if (!node.hasOrderings() && node.getSource() instanceof ExchangeNode) {
+                source = createLocalExchange((ExchangeNode) node.getSource(), context, false);
+            }
+            else {
+                source = node.getSource().accept(this, context);
+            }
 
             if (node.getGroupingKeys().isEmpty()) {
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
@@ -2110,6 +2116,11 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
+            return createLocalExchange(node, context, true);
+        }
+
+        private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context, boolean preferPageCopying)
+        {
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the local planner");
 
             int driverInstanceCount;
@@ -2152,7 +2163,8 @@ public class LocalExecutionPlanner
                     types,
                     channels,
                     hashChannel,
-                    exchangeSourcePipelineExecutionStrategy);
+                    exchangeSourcePipelineExecutionStrategy,
+                    preferPageCopying);
             for (int i = 0; i < node.getSources().size(); i++) {
                 DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);
                 PhysicalOperation source = driverFactoryParameters.getSource();
