@@ -85,6 +85,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLate
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
+import com.facebook.presto.sql.planner.optimizations.AddLocalExchangeBelowPartialAggregation;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
@@ -419,6 +420,11 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata.getFunctionRegistry()),
                         new PruneJoinColumns())));
+        builder.add(new IterativeOptimizer(
+                stats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new AddLocalExchangeBelowPartialAggregation(metadata, sqlParser))));
         builder.add(new IterativeOptimizer(
                 stats,
                 statsCalculator,
