@@ -150,6 +150,7 @@ public abstract class BaseJoinReorderingTest
     {
         String sql = read(sqlPath)
                 .replaceFirst(";", "")
+                .replace("${database}.${schema}.", "")
                 .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
         Plan plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false);
 
