@@ -36,6 +36,10 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * It is not yet proved that this heuristic makes any better, but also it is not proved that it make any worse.
+ * Either this rule will be enhanced in the future or dropped at all.
+ */
 public class SimpleFilterProjectSemiJoinStatsRule
         extends SimpleStatsRule
 {
