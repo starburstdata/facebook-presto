@@ -1,5 +1,8 @@
 cross join:
-    join (INNER, REPLICATED):
+    join (INNER, PARTITIONED):
+        join (INNER, REPLICATED):
+            tpcds:customer_address:sf3000.0
+            tpcds:store:sf3000.0
         join (INNER, PARTITIONED):
             join (INNER, REPLICATED):
                 tpcds:store_sales:sf3000.0
@@ -7,9 +10,6 @@ cross join:
                     tpcds:store_returns:sf3000.0
                     tpcds:item:sf3000.0
             tpcds:customer:sf3000.0
-        join (INNER, REPLICATED):
-            tpcds:customer_address:sf3000.0
-            tpcds:store:sf3000.0
     join (INNER, REPLICATED):
         join (INNER, REPLICATED):
             join (INNER, REPLICATED):
