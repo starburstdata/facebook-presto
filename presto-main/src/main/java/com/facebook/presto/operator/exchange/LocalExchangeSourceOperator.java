@@ -19,10 +19,12 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -83,12 +85,15 @@ public class LocalExchangeSourceOperator
 
     private final OperatorContext operatorContext;
     private final LocalExchangeSource source;
+    private final List<Page> pages = new ArrayList<>();
+    private final PageBuilder builder;
 
     public LocalExchangeSourceOperator(OperatorContext operatorContext, LocalExchangeSource source)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.source = requireNonNull(source, "source is null");
         operatorContext.setInfoSupplier(source::getBufferInfo);
+        builder = new PageBuilder(getTypes());
     }
 
     @Override
@@ -112,7 +117,7 @@ public class LocalExchangeSourceOperator
     @Override
     public boolean isFinished()
     {
-        return source.isFinished();
+        return source.isFinished() && pages.isEmpty();
     }
 
     @Override
@@ -139,8 +144,33 @@ public class LocalExchangeSourceOperator
         Page page = source.removePage();
         if (page != null) {
             operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+            pages.add(page);
         }
-        return page;
+
+        if (pages.stream().mapToInt(Page::getPositionCount).sum() > 700 || source.isFinished()) {
+            if (pages.size() == 1) {
+                Page result = pages.get(0);
+                pages.clear();
+                return result;
+            }
+
+            pages.forEach(pageToAppend -> {
+                builder.declarePositions(pageToAppend.getPositionCount());
+                for (int channel = 0; channel < getTypes().size(); channel++) {
+                    Type type = getTypes().get(channel);
+                    for (int position = 0; position < pageToAppend.getPositionCount(); position++) {
+                        type.appendTo(pageToAppend.getBlock(channel), position, builder.getBlockBuilder(channel));
+                    }
+                }
+            });
+
+            Page result = builder.build();
+            builder.reset();
+            pages.clear();
+            return result;
+        }
+
+        return null;
     }
 
     @Override
