@@ -30,6 +30,7 @@ import java.util.function.Function;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
+import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.HYBRID;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -78,6 +79,11 @@ class StreamPreferredProperties
     public static StreamPreferredProperties fixedParallelism()
     {
         return new StreamPreferredProperties(Optional.of(FIXED), Optional.empty(), false);
+    }
+
+    public static StreamPreferredProperties hybridParallelism()
+    {
+        return new StreamPreferredProperties(Optional.of(HYBRID), Optional.empty(), false);
     }
 
     public static StreamPreferredProperties defaultParallelism(Session session)
@@ -171,6 +177,9 @@ class StreamPreferredProperties
         if (distribution.isPresent()) {
             StreamDistribution actualDistribution = actualProperties.getDistribution();
             if (distribution.get() == SINGLE && actualDistribution != SINGLE) {
+                return false;
+            }
+            else if (distribution.get() == HYBRID && actualDistribution != HYBRID && actualDistribution != FIXED) {
                 return false;
             }
             else if (distribution.get() == FIXED && actualDistribution != FIXED) {

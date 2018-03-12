@@ -40,6 +40,7 @@ import static com.facebook.presto.operator.exchange.LocalExchangeSink.finishedLo
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.HYBRID_HASH_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -114,6 +115,10 @@ public class LocalExchange
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             exchangerSupplier = () -> new PartitioningExchanger(buffers, memoryManager, types, partitionChannels, partitionHashChannel);
+        }
+        else if (partitioning.equals(HYBRID_HASH_PASSTHROUGH_DISTRIBUTION)) {
+            AdaptiveHashPassthroughExchangerFactory factory = new AdaptiveHashPassthroughExchangerFactory(buffers, memoryManager, types, partitionChannels, partitionHashChannel);
+            exchangerSupplier = factory::createExchanger;
         }
         else {
             throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
@@ -374,6 +379,10 @@ public class LocalExchange
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             bufferCount = defaultConcurrency;
             checkArgument(!partitionChannels.isEmpty(), "Partitioned exchange must have partition channels");
+        }
+        else if (partitioning.equals(HYBRID_HASH_PASSTHROUGH_DISTRIBUTION)) {
+            bufferCount = defaultConcurrency;
+            checkArgument(!partitionChannels.isEmpty(), "Hybrid exchange must have partition channels");
         }
         else {
             throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);

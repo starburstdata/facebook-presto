@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -72,6 +73,7 @@ import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.HYBRID_HASH_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -469,13 +471,19 @@ public class HashGenerationOptimizer
             // Currently, precomputed hash values are only supported for system hash distributions without constants
             Optional<HashComputation> partitionSymbols = Optional.empty();
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
-            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
-                // add precomputed hash for exchange
-                partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
+            PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
+            if (partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
+                Optional<HashComputation> preferredPartitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
                         .map(ArgumentBinding::getColumn)
                         .collect(toImmutableList()));
-                preference = preference.withHashComputation(partitionSymbols);
+                if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+                    // add precomputed hash for exchange
+                    preference = preference.withHashComputation(partitionSymbols);
+                    partitionSymbols = preferredPartitionSymbols;
+                }
+                else if (partitioningHandle.equals(HYBRID_HASH_PASSTHROUGH_DISTRIBUTION)) {
+                    partitionSymbols = preferredPartitionSymbols;
+                }
             }
 
             // establish fixed ordering for hash symbols

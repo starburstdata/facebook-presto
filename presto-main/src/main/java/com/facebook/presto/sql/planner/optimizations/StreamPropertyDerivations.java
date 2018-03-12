@@ -77,7 +77,9 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.HYBRID_HASH_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
+import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.HYBRID;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -283,11 +285,13 @@ final class StreamPropertyDerivations
                     if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
                         return new StreamProperties(FIXED, Optional.empty(), false);
                     }
-                    return new StreamProperties(
-                            FIXED,
-                            Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                                    .map(ArgumentBinding::getColumn)
-                                    .collect(toImmutableList())), false);
+                    Optional<? extends Iterable<Symbol>> partitioningColumns = Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
+                            .map(ArgumentBinding::getColumn)
+                            .collect(toImmutableList()));
+                    if (node.getPartitioningScheme().getPartitioning().getHandle().equals(HYBRID_HASH_PASSTHROUGH_DISTRIBUTION)) {
+                        return new StreamProperties(HYBRID, partitioningColumns, false);
+                    }
+                    return new StreamProperties(FIXED, partitioningColumns, false);
                 case REPLICATE:
                     return new StreamProperties(MULTIPLE, Optional.empty(), false);
             }
@@ -531,7 +535,7 @@ final class StreamPropertyDerivations
     {
         public enum StreamDistribution
         {
-            SINGLE, MULTIPLE, FIXED
+            SINGLE, MULTIPLE, FIXED, HYBRID
         }
 
         private final StreamDistribution distribution;
