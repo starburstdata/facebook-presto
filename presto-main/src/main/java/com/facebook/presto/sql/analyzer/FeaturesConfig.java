@@ -67,6 +67,7 @@ public class FeaturesConfig
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
     private boolean enableIntermediateAggregations;
+    private boolean enableAdaptiveLocalExchange;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
@@ -589,6 +590,18 @@ public class FeaturesConfig
     public FeaturesConfig setEnableIntermediateAggregations(boolean enableIntermediateAggregations)
     {
         this.enableIntermediateAggregations = enableIntermediateAggregations;
+        return this;
+    }
+
+    public boolean isEnableAdaptiveLocalExchange()
+    {
+        return enableAdaptiveLocalExchange;
+    }
+
+    @Config("experimental.enable-adaptive-local-exchange")
+    public FeaturesConfig setEnableAdaptiveLocalExchange(boolean enableAdaptiveLocalExchange)
+    {
+        this.enableAdaptiveLocalExchange = enableAdaptiveLocalExchange;
         return this;
     }
 

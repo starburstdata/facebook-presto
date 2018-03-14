@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_ADAPTIVE_LOCAL_EXCHANGE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -43,6 +44,7 @@ public class TestAddAdaptiveExchangeBelowPartialAggregation
     public void testDoesNotFireForFinalAggregation()
     {
         tester().assertThat(new AddAdaptiveExchangeBelowPartialAggregation(tester().getMetadata(), SQL_PARSER))
+                .setSystemProperty(ENABLE_ADAPTIVE_LOCAL_EXCHANGE, "true")
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.values(p.symbol("GROUP_COL"), p.symbol("AGGR_COL")))
                         .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(AGGR_COL)"), ImmutableList.of(DOUBLE))
@@ -55,6 +57,7 @@ public class TestAddAdaptiveExchangeBelowPartialAggregation
     public void testDoesAddLocalHashExchangeBelowPartialAggregation()
     {
         tester().assertThat(new AddAdaptiveExchangeBelowPartialAggregation(tester().getMetadata(), SQL_PARSER))
+                .setSystemProperty(ENABLE_ADAPTIVE_LOCAL_EXCHANGE, "true")
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.values(p.symbol("GROUP_COL"), p.symbol("AGGR_COL")))
                         .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(AGGR_COL)"), ImmutableList.of(DOUBLE))
@@ -75,6 +78,7 @@ public class TestAddAdaptiveExchangeBelowPartialAggregation
     public void testDoesNotFireWhenAlreadyPartitioned()
     {
         tester().assertThat(new AddAdaptiveExchangeBelowPartialAggregation(tester().getMetadata(), SQL_PARSER))
+                .setSystemProperty(ENABLE_ADAPTIVE_LOCAL_EXCHANGE, "true")
                 .on(p -> {
                     Symbol groupSymbol1 = p.symbol("GROUP_COL1");
                     Symbol groupSymbol2 = p.symbol("GROUP_COL2");
