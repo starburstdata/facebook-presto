@@ -85,6 +85,7 @@ public final class SystemSessionProperties
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
+    public static final String MAX_LOCAL_EXCHANGE_BUFFER_SIZE = "max_local_exchange_buffer_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
 
@@ -168,6 +169,23 @@ public final class SystemSessionProperties
                         featuresConfig.getWriterMinSize(),
                         false,
                         value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
+                new PropertyMetadata<>(
+                        MAX_LOCAL_EXCHANGE_BUFFER_SIZE,
+                        "Maximum buffered bytes in local exchange",
+                        VARCHAR,
+                        DataSize.class,
+                        taskManagerConfig.getMaxLocalExchangeBufferSize(),
+                        false,
+                        value -> {
+                            DataSize size = DataSize.valueOf((String) value);
+                            if (size.compareTo(new DataSize(256, DataSize.Unit.MEGABYTE)) > 0) {
+                                throw new PrestoException(
+                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
+                                        format("%s must not be larger than 256MBs", size));
+                            }
+                            return size;
+                        },
                         DataSize::toString),
                 booleanSessionProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
@@ -465,6 +483,11 @@ public final class SystemSessionProperties
     public static DataSize getWriterMinSize(Session session)
     {
         return session.getSystemProperty(WRITER_MIN_SIZE, DataSize.class);
+    }
+
+    public static DataSize getMaxLocalExchangeBufferSize(Session session)
+    {
+        return session.getSystemProperty(MAX_LOCAL_EXCHANGE_BUFFER_SIZE, DataSize.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)
