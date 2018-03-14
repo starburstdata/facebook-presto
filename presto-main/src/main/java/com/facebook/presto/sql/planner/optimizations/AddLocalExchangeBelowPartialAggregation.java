@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
@@ -59,6 +61,12 @@ public class AddLocalExchangeBelowPartialAggregation
     public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return SystemSessionProperties.isEnableAdaptiveLocalExchange(session);
     }
 
     @Override
