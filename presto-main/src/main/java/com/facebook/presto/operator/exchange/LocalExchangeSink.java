@@ -60,6 +60,7 @@ public class LocalExchangeSink
     public void finish()
     {
         if (finished.compareAndSet(false, true)) {
+            exchanger.close();
             onFinish.accept(this);
         }
     }
