@@ -139,15 +139,7 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getWriterCount(),
                         false,
-                        value -> {
-                            int concurrency = ((Number) value).intValue();
-                            if (Integer.bitCount(concurrency) != 1) {
-                                throw new PrestoException(
-                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
-                                        format("%s must be a power of 2: %s", TASK_WRITER_COUNT, concurrency));
-                            }
-                            return concurrency;
-                        },
+                        value -> validateValueIsPowerOfTwo(value, TASK_WRITER_COUNT),
                         value -> value),
                 booleanSessionProperty(
                         REDISTRIBUTE_WRITES,
@@ -180,15 +172,7 @@ public final class SystemSessionProperties
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
-                        value -> {
-                            int concurrency = ((Number) value).intValue();
-                            if (Integer.bitCount(concurrency) != 1) {
-                                throw new PrestoException(
-                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
-                                        format("%s must be a power of 2: %s", TASK_CONCURRENCY, concurrency));
-                            }
-                            return concurrency;
-                        },
+                        value -> validateValueIsPowerOfTwo(value, TASK_CONCURRENCY),
                         value -> value),
                 booleanSessionProperty(
                         TASK_SHARE_INDEX_LOADING,
@@ -651,5 +635,16 @@ public final class SystemSessionProperties
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)
     {
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
+    }
+
+    private static Integer validateValueIsPowerOfTwo(Object value, String property)
+    {
+        int intValue = ((Number) value).intValue();
+        if (Integer.bitCount(intValue) != 1) {
+            throw new PrestoException(
+                    StandardErrorCode.INVALID_SESSION_PROPERTY,
+                    format("%s must be a power of 2: %s", property, intValue));
+        }
+        return intValue;
     }
 }
