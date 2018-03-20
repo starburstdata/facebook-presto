@@ -227,6 +227,7 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
+    private final int nodeCountForStats;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final CostCalculator estimatedExchangesCostCalculator;
@@ -248,6 +249,7 @@ public class LocalQueryRunner
     private final ConnectorManager connectorManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
+    private final TaskManagerConfig taskManagerConfig;
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
     private boolean printPlan;
@@ -293,6 +295,7 @@ public class LocalQueryRunner
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
 
+        this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
@@ -326,10 +329,11 @@ public class LocalQueryRunner
                 featuresConfig,
                 typeRegistry,
                 blockEncodingSerde,
-                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
+                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
+        this.nodeCountForStats = nodeCountForStats;
         this.statsCalculator = new SelectingStatsCalculator(
                 new CoefficientBasedStatsCalculator(metadata),
                 ServerMainModule.createNewStatsCalculator(metadata));
@@ -677,7 +681,7 @@ public class LocalQueryRunner
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
-                new TaskManagerConfig().setTaskConcurrency(4),
+                this.taskManagerConfig,
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
@@ -782,6 +786,8 @@ public class LocalQueryRunner
                 metadata,
                 sqlParser,
                 featuresConfig,
+                () -> nodeCountForStats,
+                taskManagerConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 statsCalculator,
