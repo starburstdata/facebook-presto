@@ -1648,8 +1648,8 @@ public class TestHiveIntegrationSmokeTest
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("writer_min_size", "4MB")
                             .build(),
-                    "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf2.orders",
-                    (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
+                    "CREATE TABLE scale_writers_large WITH (format = 'RCBINARY') AS SELECT * FROM tpch.sf8.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf8.orders").getOnlyValue());
 
             assertEquals(
                     computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_large"),
