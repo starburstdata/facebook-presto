@@ -6,7 +6,7 @@ before-execution: sleep-4s
 frequency: 7
 database: hive
 tpcds_10: tpcds_sf10_orc
-tpcds_30: tpcds_sf3100_orc
+tpcds_30: tpcds_sf100_orc
 tpcds_100: tpcds_sf100_orc
 tpcds_300: tpcds_sf300_orc
 tpcds_1000: tpcds_sf1000_orc
