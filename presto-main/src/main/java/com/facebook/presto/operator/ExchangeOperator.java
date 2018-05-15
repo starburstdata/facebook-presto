@@ -201,7 +201,7 @@ public class ExchangeOperator
             return null;
         }
 
-        operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
+        //operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
         return serde.deserialize(page);
     }
 

@@ -137,9 +137,9 @@ public class LocalExchangeSourceOperator
     public Page getOutput()
     {
         Page page = source.removePage();
-        if (page != null) {
+        /*if (page != null) {
             operatorContext.recordGeneratedInput(page.getSizeInBytes(), page.getPositionCount());
-        }
+        }*/
         return page;
     }
 
