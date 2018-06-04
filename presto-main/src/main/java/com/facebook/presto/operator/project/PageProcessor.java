@@ -14,8 +14,12 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.array.ReferenceCountMap;
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
+import com.facebook.presto.operator.WorkProcessor;
+import com.facebook.presto.operator.WorkProcessor.ProcessorState;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
@@ -23,23 +27,28 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.finished;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.needsMoreData;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.ofResult;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.yield;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterators.singletonIterator;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -76,42 +85,95 @@ public class PageProcessor
 
     public PageProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, Page page)
     {
-        // limit the scope of the dictionary ids to just one page
-        dictionarySourceIdFunction.reset();
-
-        if (page.getPositionCount() == 0) {
-            return EMPTY_PAGE_PROCESSOR_OUTPUT;
-        }
-
-        if (filter.isPresent()) {
-            SelectedPositions selectedPositions = filter.get().filter(session, filter.get().getInputChannels().getInputChannels(page));
-            if (selectedPositions.isEmpty()) {
-                return EMPTY_PAGE_PROCESSOR_OUTPUT;
-            }
-
-            if (projections.isEmpty()) {
-                return new PageProcessorOutput(() -> calculateRetainedSizeWithoutLoading(page), singletonIterator(Optional.of(new Page(selectedPositions.size()))));
-            }
-
-            if (selectedPositions.size() != page.getPositionCount()) {
-                PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, yieldSignal, page, selectedPositions);
-                return new PageProcessorOutput(pages::getRetainedSizeInBytes, pages);
-            }
-        }
-
-        PositionsPageProcessorIterator pages = new PositionsPageProcessorIterator(session, yieldSignal, page, positionsRange(0, page.getPositionCount()));
-        return new PageProcessorOutput(pages::getRetainedSizeInBytes, pages);
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        return new PageProcessorOutput(memoryContext::getBytes, process(session, yieldSignal, memoryContext, page));
     }
 
-    @VisibleForTesting
-    public List<PageProjection> getProjections()
+    public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page page)
     {
-        return projections;
+        WorkProcessor<Page> processor = process(session, yieldSignal, memoryContext, WorkProcessor.create(new SingletonPage(memoryContext, page)));
+        return processor.yieldingIterator();
     }
 
-    private static boolean isUnloadedLazyBlock(Block block)
+    public WorkProcessor<Page> process(ConnectorSession session, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, WorkProcessor<Page> pages)
     {
-        return (block instanceof LazyBlock) && !((LazyBlock) block).isLoaded();
+        return pages.flatTransform(new PageFilterAndProjectTransformation(session, yieldSignal, memoryContext));
+    }
+
+    private class SingletonPage
+            implements WorkProcessor.Process<Page>
+    {
+        private final LocalMemoryContext memoryContext;
+        private Page page;
+
+        private SingletonPage(AggregatedMemoryContext memoryContext, Page page)
+        {
+            this.memoryContext = memoryContext.newLocalMemoryContext();
+            this.page = page;
+            this.memoryContext.setBytes(calculateRetainedSizeWithoutLoading(page));
+        }
+
+        @Override
+        public ProcessorState<Page> process()
+        {
+            if (page == null) {
+                return finished();
+            }
+
+            Page result = page;
+            page = null;
+            memoryContext.close();
+            return ProcessorState.ofResult(result);
+        }
+    }
+
+    private class PageFilterAndProjectTransformation
+            implements WorkProcessor.Transformation<Page, WorkProcessor<Page>>
+    {
+        private final ConnectorSession session;
+        private final DriverYieldSignal yieldSignal;
+        private final AggregatedMemoryContext memoryContext;
+
+        private PageFilterAndProjectTransformation(ConnectorSession session, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext)
+        {
+            this.session = session;
+            this.yieldSignal = yieldSignal;
+            this.memoryContext = memoryContext;
+        }
+
+        @Override
+        public ProcessorState<WorkProcessor<Page>> process(Optional<Page> pageOptional)
+        {
+            if (!pageOptional.isPresent()) {
+                return finished();
+            }
+
+            Page page = pageOptional.get();
+
+            // limit the scope of the dictionary ids to just one page
+            dictionarySourceIdFunction.reset();
+
+            if (page.getPositionCount() == 0) {
+                return needsMoreData();
+            }
+
+            if (filter.isPresent()) {
+                SelectedPositions selectedPositions = filter.get().filter(session, filter.get().getInputChannels().getInputChannels(page));
+                if (selectedPositions.isEmpty()) {
+                    return needsMoreData();
+                }
+
+                if (projections.isEmpty()) {
+                    return ofResult(WorkProcessor.fromIterable(ImmutableList.of(new Page(selectedPositions.size()))));
+                }
+
+                if (selectedPositions.size() != page.getPositionCount()) {
+                    return ofResult(WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, selectedPositions)));
+                }
+            }
+
+            return ofResult(WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, page, positionsRange(0, page.getPositionCount()))));
+        }
     }
 
     private static long calculateRetainedSizeWithoutLoading(Page page)
@@ -126,46 +188,45 @@ public class PageProcessor
         return retainedSizeInBytes;
     }
 
-    private class PositionsPageProcessorIterator
-            extends AbstractIterator<Optional<Page>>
+    private class ProjectSelectedPositions
+            implements WorkProcessor.Process<Page>
     {
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
-        private final Page page;
+        private final LocalMemoryContext memoryContext;
+
+        private Page page;
+        private Block[] previouslyComputedResults;
 
         private SelectedPositions selectedPositions;
-        private final Block[] previouslyComputedResults;
-        private long retainedSizeInBytes;
 
         // remember if we need to re-use the same batch size if we yield last time
         private boolean lastComputeYielded;
         private int lastComputeBatchSize;
         private Work<Block> pageProjectWork;
 
-        public PositionsPageProcessorIterator(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+        private ProjectSelectedPositions(ConnectorSession session, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page page, SelectedPositions selectedPositions)
         {
             this.session = session;
             this.yieldSignal = yieldSignal;
             this.page = page;
+            this.memoryContext = memoryContext.newLocalMemoryContext();
             this.selectedPositions = selectedPositions;
             this.previouslyComputedResults = new Block[projections.size()];
             updateRetainedSize();
         }
 
-        public long getRetainedSizeInBytes()
-        {
-            return retainedSizeInBytes;
-        }
-
         @Override
-        protected Optional<Page> computeNext()
+        public ProcessorState<Page> process()
         {
             int batchSize;
             while (true) {
                 if (selectedPositions.isEmpty()) {
-                    updateRetainedSize();
+                    page = null;
+                    previouslyComputedResults = null;
+                    memoryContext.close();
                     verify(!lastComputeYielded);
-                    return endOfData();
+                    return finished();
                 }
 
                 // we always process one chunk
@@ -185,7 +246,7 @@ public class PageProcessor
                     // if we are running out of time, save the batch size and continue next time
                     lastComputeYielded = true;
                     lastComputeBatchSize = batchSize;
-                    return Optional.empty();
+                    return yield();
                 }
 
                 if (result.isPageTooLarge()) {
@@ -221,21 +282,21 @@ public class PageProcessor
                 }
 
                 updateRetainedSize();
-                return Optional.of(page);
+                return ofResult(page);
             }
         }
 
         private void updateRetainedSize()
         {
             // increment the size only when it is the first reference
-            retainedSizeInBytes = Page.INSTANCE_SIZE + SizeOf.sizeOfObjectArray(page.getChannelCount());
+            AtomicLong retainedSizeInBytes = new AtomicLong(Page.INSTANCE_SIZE + SizeOf.sizeOfObjectArray(page.getChannelCount()));
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Block block = page.getBlock(channel);
                 if (!isUnloadedLazyBlock(block)) {
                     block.retainedBytesForEachPart((object, size) -> {
                         if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
+                            retainedSizeInBytes.addAndGet(size);
                         }
                     });
                 }
@@ -244,11 +305,13 @@ public class PageProcessor
                 if (previouslyComputedResult != null) {
                     previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
                         if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
+                            retainedSizeInBytes.addAndGet(size);
                         }
                     });
                 }
             }
+
+            memoryContext.setBytes(retainedSizeInBytes.get());
         }
 
         private ProcessBatchResult processBatch(int batchSize)
@@ -287,6 +350,17 @@ public class PageProcessor
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));
         }
+    }
+
+    @VisibleForTesting
+    public List<PageProjection> getProjections()
+    {
+        return projections;
+    }
+
+    private static boolean isUnloadedLazyBlock(Block block)
+    {
+        return (block instanceof LazyBlock) && !((LazyBlock) block).isLoaded();
     }
 
     @NotThreadSafe

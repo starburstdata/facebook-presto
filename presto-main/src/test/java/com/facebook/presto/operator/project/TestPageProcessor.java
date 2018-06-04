@@ -132,6 +132,8 @@ public class TestPageProcessor
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
+        // initiate computations by checking for next element existence
+        output.hasNext();
         assertEquals(output.getRetainedSizeInBytes(), 0);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
@@ -146,6 +148,8 @@ public class TestPageProcessor
         Page inputPage = new Page(createLongSequenceBlock(0, 0));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
+        // initiate computations by checking for next element existence
+        output.hasNext();
         assertEquals(output.getRetainedSizeInBytes(), 0);
 
         // output should be one page containing no columns (only a count)
@@ -164,6 +168,8 @@ public class TestPageProcessor
         }));
 
         PageProcessorOutput output = pageProcessor.process(SESSION, new DriverYieldSignal(), inputPage);
+        // initiate computations by checking for next element existence
+        output.hasNext();
         assertEquals(output.getRetainedSizeInBytes(), 0);
 
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
