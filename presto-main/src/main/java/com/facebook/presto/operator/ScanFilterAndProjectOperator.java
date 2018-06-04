@@ -19,7 +19,6 @@ import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.operator.project.MergingPageOutput;
 import com.facebook.presto.operator.project.PageProcessor;
-import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -40,6 +39,7 @@ import io.airlift.units.DataSize;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -275,7 +275,7 @@ public class ScanFilterAndProjectOperator
                 completedBytes = endCompletedBytes;
                 readTimeNanos = endReadTimeNanos;
 
-                PageProcessorOutput output = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, page);
+                Iterator<Optional<Page>> output = pageProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, operatorContext.aggregateUserMemoryContext(), page);
                 mergingOutput.addInput(output);
             }
 

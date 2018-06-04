@@ -85,7 +85,11 @@ public class FilterAndProjectOperator
         requireNonNull(page, "page is null");
         checkState(mergingOutput.needsInput(), "Page buffer is full");
 
-        mergingOutput.addInput(processor.process(operatorContext.getSession().toConnectorSession(), operatorContext.getDriverContext().getYieldSignal(), page));
+        mergingOutput.addInput(processor.process(
+                operatorContext.getSession().toConnectorSession(),
+                operatorContext.getDriverContext().getYieldSignal(),
+                operatorContext.aggregateUserMemoryContext(),
+                page));
         outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
     }
 

@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -61,7 +62,7 @@ public class TestTupleFilterProcessor
                 outputTypes,
                 new PageFunctionCompiler(createTestMetadataManager(), 0));
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage).get();
-        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, new DriverYieldSignal(), inputPage)).orElseThrow(() -> new AssertionError("page is not present"));
+        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), inputPage)).orElseThrow(() -> new AssertionError("page is not present"));
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)

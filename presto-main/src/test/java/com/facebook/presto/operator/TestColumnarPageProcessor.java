@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
+import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -47,7 +48,7 @@ public class TestColumnarPageProcessor
     public void testProcess()
     {
         Page page = createPage(types, false);
-        Page outputPage = getOnlyElement(processor.process(SESSION, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
+        Page outputPage = getOnlyElement(processor.process(SESSION, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertPageEquals(types, outputPage, page);
     }
 
@@ -55,7 +56,7 @@ public class TestColumnarPageProcessor
     public void testProcessWithDictionary()
     {
         Page page = createPage(types, true);
-        Page outputPage = getOnlyElement(processor.process(SESSION, new DriverYieldSignal(), page)).orElseThrow(() -> new AssertionError("page is not present"));
+        Page outputPage = getOnlyElement(processor.process(SESSION, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), page)).orElseThrow(() -> new AssertionError("page is not present"));
         assertPageEquals(types, outputPage, page);
     }
 

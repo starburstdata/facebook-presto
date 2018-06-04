@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.finished;
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.needsMoreData;
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.ofResult;
@@ -81,12 +80,6 @@ public class PageProcessor
                     return projection;
                 })
                 .collect(toImmutableList());
-    }
-
-    public PageProcessorOutput process(ConnectorSession session, DriverYieldSignal yieldSignal, Page page)
-    {
-        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        return new PageProcessorOutput(memoryContext::getBytes, process(session, yieldSignal, memoryContext, page));
     }
 
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page page)
