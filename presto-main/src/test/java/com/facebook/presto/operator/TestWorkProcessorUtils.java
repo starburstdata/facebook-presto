@@ -35,6 +35,23 @@ import static org.testng.Assert.assertTrue;
 
 public class TestWorkProcessorUtils
 {
+    @Test
+    public void testIterator()
+    {
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(
+                ProcessorState.ofResult(1),
+                ProcessorState.yield(),
+                ProcessorState.ofResult(2),
+                ProcessorState.finished()));
+
+        Iterator<Integer> iterator = processor.iterator();
+        assertTrue(iterator.hasNext());
+        assertEquals(iterator.next(), (Integer) 1);
+        assertTrue(iterator.hasNext());
+        assertEquals(iterator.next(), (Integer) 2);
+        assertFalse(iterator.hasNext());
+    }
+
     @Test(timeOut = 5000)
     public void testMergeSorted()
     {
