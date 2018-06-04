@@ -90,6 +90,11 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.iteratorFrom(this);
     }
 
+    default Iterator<Optional<T>> yieldingIterator()
+    {
+        return WorkProcessorUtils.yieldingIteratorFrom(this);
+    }
+
     static <T> WorkProcessor<T> fromIterable(Iterable<T> iterable)
     {
         return WorkProcessorUtils.fromIterator(iterable.iterator());

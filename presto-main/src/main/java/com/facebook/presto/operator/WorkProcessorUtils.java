@@ -42,8 +42,31 @@ public final class WorkProcessorUtils
     {
         return new AbstractIterator<T>()
         {
+            final Iterator<Optional<T>> yieldingIterator = yieldingIteratorFrom(processor);
+
             @Override
             protected T computeNext()
+            {
+                while (true) {
+                    if (!yieldingIterator.hasNext()) {
+                        return endOfData();
+                    }
+
+                    Optional<T> elementOptional = yieldingIterator.next();
+                    if (elementOptional.isPresent()) {
+                        return elementOptional.get();
+                    }
+                }
+            }
+        };
+    }
+
+    static <T> Iterator<Optional<T>> yieldingIteratorFrom(WorkProcessor<T> processor)
+    {
+        return new AbstractIterator<Optional<T>>()
+        {
+            @Override
+            protected Optional<T> computeNext()
             {
                 while (true) {
                     if (processor.process()) {
@@ -51,7 +74,7 @@ public final class WorkProcessorUtils
                             return endOfData();
                         }
 
-                        return processor.getResult();
+                        return Optional.of(processor.getResult());
                     }
                     else if (processor.isBlocked()) {
                         try {
@@ -64,6 +87,10 @@ public final class WorkProcessorUtils
                         catch (ExecutionException e) {
                             throw new RuntimeException(e);
                         }
+                    }
+                    else {
+                        // yielded
+                        return Optional.empty();
                     }
                 }
             }
