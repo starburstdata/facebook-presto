@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.project.MergingPageOutput;
+import com.facebook.presto.operator.project.MergePages;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
@@ -35,13 +35,13 @@ public class FilterAndProjectOperator
     private final LocalMemoryContext outputMemoryContext;
 
     private final PageProcessor processor;
-    private MergingPageOutput mergingOutput;
+    private MergePages mergingOutput;
     private boolean finishing;
 
     public FilterAndProjectOperator(
             OperatorContext operatorContext,
             PageProcessor processor,
-            MergingPageOutput mergingOutput)
+            MergePages mergingOutput)
     {
         this.processor = requireNonNull(processor, "processor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -58,24 +58,26 @@ public class FilterAndProjectOperator
     @Override
     public final void finish()
     {
-        mergingOutput.finish();
+        //mergingOutput.finish();
         finishing = true;
     }
 
     @Override
     public final boolean isFinished()
     {
-        boolean finished = finishing && mergingOutput.isFinished();
+        /*boolean finished = finishing && mergingOutput.isFinished();
         if (finished) {
             outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
         }
-        return finished;
+        return finished;*/
+        return false;
     }
 
     @Override
     public final boolean needsInput()
     {
-        return !finishing && mergingOutput.needsInput();
+        //return !finishing && mergingOutput.needsInput();
+        return false;
     }
 
     @Override
@@ -83,20 +85,21 @@ public class FilterAndProjectOperator
     {
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        checkState(mergingOutput.needsInput(), "Page buffer is full");
+        //checkState(mergingOutput.needsInput(), "Page buffer is full");
 
-        mergingOutput.addInput(processor.process(
+        /*mergingOutput.addInput(processor.process(
                 operatorContext.getSession().toConnectorSession(),
                 operatorContext.getDriverContext().getYieldSignal(),
                 operatorContext.aggregateUserMemoryContext(),
-                page));
-        outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
+                page));*/
+        //outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
     }
 
     @Override
     public final Page getOutput()
     {
-        return mergingOutput.getOutput();
+        //return mergingOutput.getOutput();
+        return null;
     }
 
     public static class FilterAndProjectOperatorFactory
@@ -134,7 +137,7 @@ public class FilterAndProjectOperator
             return new FilterAndProjectOperator(
                     operatorContext,
                     processor.get(),
-                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
+                    null);//new MergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }
 
         @Override

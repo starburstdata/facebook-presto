@@ -15,6 +15,8 @@ package com.facebook.presto.operator;
 
 import com.google.common.util.concurrent.SettableFuture;
 
+import java.util.function.Consumer;
+
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -46,10 +48,15 @@ public final class WorkProcessorAssertion
 
     public static <T> void assertResult(WorkProcessor<T> processor, T result)
     {
+        assertResult(processor, (Consumer<T>) actualResult -> assertEquals(processor.getResult(), result));
+    }
+
+    public static <T> void assertResult(WorkProcessor<T> processor, Consumer<T> validator)
+    {
         assertTrue(processor.process());
         assertFalse(processor.isBlocked());
         assertFalse(processor.isFinished());
-        assertEquals(processor.getResult(), result);
+        validator.accept(processor.getResult());
     }
 
     public static <T> void assertFinishes(WorkProcessor<T> processor)
