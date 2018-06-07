@@ -37,7 +37,6 @@ import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -62,7 +61,7 @@ public class TestJoinEnumerator
     @Test
     public void testGeneratePartitions()
     {
-        Set<Set<Integer>> partitions = generatePartitions(4).collect(toImmutableSet());
+        Set<Set<Integer>> partitions = generatePartitions(4);
         assertEquals(partitions,
                 ImmutableSet.of(
                         ImmutableSet.of(0),
@@ -73,7 +72,7 @@ public class TestJoinEnumerator
                         ImmutableSet.of(0, 1, 3),
                         ImmutableSet.of(0, 2, 3)));
 
-        partitions = generatePartitions(3).collect(toImmutableSet());
+        partitions = generatePartitions(3);
         assertEquals(partitions,
                 ImmutableSet.of(
                         ImmutableSet.of(0),
@@ -89,7 +88,7 @@ public class TestJoinEnumerator
         Symbol a1 = planBuilder.symbol("A1", BIGINT);
         Symbol b1 = planBuilder.symbol("B1", BIGINT);
         MultiJoinNode multiJoinNode = new MultiJoinNode(
-                ImmutableList.of(planBuilder.values(a1), planBuilder.values(b1)),
+                ImmutableSet.of(planBuilder.values(a1), planBuilder.values(b1)),
                 TRUE_LITERAL,
                 ImmutableList.of(a1, b1));
         SymbolAllocator symbolAllocator = new SymbolAllocator();
