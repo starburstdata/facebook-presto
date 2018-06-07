@@ -70,6 +70,7 @@ public final class SystemSessionProperties
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
+    public static final String MAX_REORDERED_TABLES = "max_reordered_tables";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -288,6 +289,11 @@ public final class SystemSessionProperties
                         false,
                         value -> JoinReorderingStrategy.valueOf(((String) value).toUpperCase()),
                         JoinReorderingStrategy::name),
+                integerSessionProperty(
+                        MAX_REORDERED_TABLES,
+                        "The maximum number of tables to reorder in cost-based join reordering",
+                        featuresConfig.getMaxReorderedTables(),
+                        false),
                 booleanSessionProperty(
                         FAST_INEQUALITY_JOINS,
                         "Use faster handling of inequality join if it is possible",
@@ -557,6 +563,11 @@ public final class SystemSessionProperties
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
     {
         return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
+    }
+
+    public static int getMaxReorderedTables(Session session)
+    {
+        return session.getSystemProperty(MAX_REORDERED_TABLES, Integer.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)

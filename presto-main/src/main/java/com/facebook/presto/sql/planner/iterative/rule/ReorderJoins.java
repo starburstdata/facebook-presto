@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
+import static com.facebook.presto.SystemSessionProperties.getMaxReorderedTables;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.INFINITE_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
@@ -93,7 +94,6 @@ public class ReorderJoins
             joinNode -> !joinNode.getDistributionType().isPresent()
                     && joinNode.getType() == INNER
                     && isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL)));
-    private static final int JOIN_LIMIT = 10;
 
     private final CostComparator costComparator;
 
@@ -118,7 +118,7 @@ public class ReorderJoins
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         // We check that join distribution type is absent because we only want to do this transformation once (reordered joins will have distribution type already set).
-        MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), JOIN_LIMIT);
+        MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), getMaxReorderedTables(context.getSession()));
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 context.getSession(),
                 context.getCostProvider(),
