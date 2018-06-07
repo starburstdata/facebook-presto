@@ -34,7 +34,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.MultiJoinNode.toMultiJoinNode;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -47,7 +46,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
-public class TestMultiJoinNodeBuilder
+public class TestJoinNodeFlattener
 {
     private static final int DEFAULT_JOIN_LIMIT = 10;
 
@@ -104,8 +103,8 @@ public class TestMultiJoinNodeBuilder
                 ImmutableList.of(a1, b1, c1),
                 Optional.empty());
 
-        MultiJoinNode expected = new MultiJoinNode(ImmutableList.of(leftJoin, valuesC), new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()), ImmutableList.of(a1, b1, c1));
-        assertMultijoinEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        MultiJoinNode expected = new MultiJoinNode(ImmutableSet.of(leftJoin, valuesC), new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()), ImmutableList.of(a1, b1, c1));
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
 
     @Test
@@ -139,10 +138,10 @@ public class TestMultiJoinNodeBuilder
                 ImmutableList.of(a1, b1),
                 Optional.empty());
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableList.of(valuesA, valuesB, valuesC),
+                ImmutableSet.of(valuesA, valuesB, valuesC),
                 and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference())),
                 ImmutableList.of(a1, b1));
-        assertMultijoinEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
 
     @Test
@@ -184,10 +183,10 @@ public class TestMultiJoinNodeBuilder
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableList.of(valuesA, valuesB, valuesC),
+                ImmutableSet.of(valuesA, valuesB, valuesC),
                 and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2));
-        assertMultijoinEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
 
     @Test
@@ -246,7 +245,7 @@ public class TestMultiJoinNodeBuilder
                         e2),
                 Optional.empty());
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableList.of(valuesA, valuesB, valuesC, valuesD, valuesE),
+                ImmutableSet.of(valuesA, valuesB, valuesC, valuesD, valuesE),
                 and(
                         new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()),
                         new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()),
@@ -254,7 +253,7 @@ public class TestMultiJoinNodeBuilder
                         new ComparisonExpression(EQUAL, d2.toSymbolReference(), e2.toSymbolReference()),
                         new ComparisonExpression(EQUAL, b1.toSymbolReference(), e1.toSymbolReference())),
                 ImmutableList.of(a1, b1, c1, d1, d2, e1, e2));
-        assertMultijoinEquals(toMultiJoinNode(joinNode, noLookup(), 5), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5), expected);
     }
 
     @Test
@@ -315,18 +314,11 @@ public class TestMultiJoinNodeBuilder
                         e2),
                 Optional.empty());
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableList.of(join1, join2, valuesC),
+                ImmutableSet.of(join1, join2, valuesC),
                 and(
                         new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()),
                         new ComparisonExpression(EQUAL, b1.toSymbolReference(), e1.toSymbolReference())),
                 ImmutableList.of(a1, b1, c1, d1, d2, e1, e2));
-        assertMultijoinEquals(toMultiJoinNode(joinNode, noLookup(), 3), expected);
-    }
-
-    private static void assertMultijoinEquals(MultiJoinNode actual, MultiJoinNode expected)
-    {
-        assertEquals(ImmutableSet.copyOf(actual.getSources()), ImmutableSet.copyOf(expected.getSources()));
-        assertEquals(ImmutableSet.copyOf(extractConjuncts(actual.getFilter())), ImmutableSet.copyOf(extractConjuncts(expected.getFilter())));
-        assertEquals(actual.getOutputSymbols(), expected.getOutputSymbols());
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 3), expected);
     }
 }

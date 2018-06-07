@@ -20,11 +20,16 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
+import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.planner.DeterminismEvaluator.isDeterministic;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -38,15 +43,20 @@ import static java.util.Objects.requireNonNull;
  */
 class MultiJoinNode
 {
-    private final List<PlanNode> sources;
+    private final Set<PlanNode> sources;
     private final Expression filter;
     private final List<Symbol> outputSymbols;
 
-    public MultiJoinNode(List<PlanNode> sources, Expression filter, List<Symbol> outputSymbols)
+    public MultiJoinNode(Set<PlanNode> sources, Expression filter, List<Symbol> outputSymbols)
     {
-        this.sources = ImmutableList.copyOf(requireNonNull(sources, "sources is null"));
-        this.filter = requireNonNull(filter, "filter is null");
-        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        requireNonNull(sources, "sources is null");
+        checkArgument(sources.size() > 1);
+        requireNonNull(filter, "filter is null");
+        requireNonNull(outputSymbols, "outputSymbols is null");
+
+        this.sources = sources;
+        this.filter = filter;
+        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
 
         List<Symbol> inputSymbols = sources.stream().flatMap(source -> source.getOutputSymbols().stream()).collect(toImmutableList());
         checkArgument(inputSymbols.containsAll(outputSymbols), "inputs do not contain all output symbols");
@@ -57,7 +67,7 @@ class MultiJoinNode
         return filter;
     }
 
-    public List<PlanNode> getSources()
+    public Set<PlanNode> getSources()
     {
         return sources;
     }
@@ -67,19 +77,38 @@ class MultiJoinNode
         return outputSymbols;
     }
 
-    static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, int joinLimit)
+    @Override
+    public int hashCode()
     {
-        return new MultiJoinNodeBuilder(joinNode, lookup, joinLimit).toMultiJoinNode();
+        return Objects.hash(sources, ImmutableSet.copyOf(extractConjuncts(filter)), outputSymbols);
     }
 
-    private static class MultiJoinNodeBuilder
+    @Override
+    public boolean equals(Object obj)
     {
-        private final List<PlanNode> sources = new ArrayList<>();
+        if (!(obj instanceof MultiJoinNode)) {
+            return false;
+        }
+
+        MultiJoinNode other = (MultiJoinNode) obj;
+        return this.sources.equals(other.sources)
+                && ImmutableSet.copyOf(extractConjuncts(this.filter)).equals(ImmutableSet.copyOf(extractConjuncts(other.filter)))
+                && this.outputSymbols.equals(other.outputSymbols);
+    }
+
+    static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, int joinLimit)
+    {
+        return new JoinNodeFlattener(joinNode, lookup, joinLimit).toMultiJoinNode();
+    }
+
+    private static class JoinNodeFlattener
+    {
+        private final Set<PlanNode> sources = new HashSet<>();
         private final List<Expression> filters = new ArrayList<>();
         private final List<Symbol> outputSymbols;
         private final Lookup lookup;
 
-        MultiJoinNodeBuilder(JoinNode node, Lookup lookup, int joinLimit)
+        JoinNodeFlattener(JoinNode node, Lookup lookup, int joinLimit)
         {
             requireNonNull(node, "node is null");
             checkState(node.getType() == INNER, "join type must be INNER");
@@ -104,7 +133,8 @@ class MultiJoinNode
                 return;
             }
 
-            flattenNode(joinNode.getLeft(), limit - 1); // (limit - 1) to account for the right side
+            // we set the left limit to limit - 1 to account for the node on the right
+            flattenNode(joinNode.getLeft(), limit - 1);
             flattenNode(joinNode.getRight(), limit);
             joinNode.getCriteria().stream()
                     .map(JoinNode.EquiJoinClause::toExpression)
