@@ -53,6 +53,8 @@ public interface Rule<T>
         StatsProvider getStatsProvider();
 
         CostProvider getCostProvider();
+
+        long getTimeoutInMillis();
     }
 
     final class Result

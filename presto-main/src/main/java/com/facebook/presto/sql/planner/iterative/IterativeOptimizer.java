@@ -240,6 +240,12 @@ public class IterativeOptimizer
             {
                 return costProvider;
             }
+
+            @Override
+            public long getTimeoutInMillis()
+            {
+                return context.timeoutInMilliseconds;
+            }
         };
     }
 
