@@ -24,8 +24,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
@@ -119,7 +119,7 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-join-using", "true")
                 .put("deprecated.legacy-row-field-ordinal-access", "true")
                 .put("distributed-index-joins-enabled", "true")
-                .put("join-distribution-type", "REPLICATED")
+                .put("join-distribution-type", "BROADCAST")
                 .put("grouped-execution-for-aggregation-enabled", "true")
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "true")
@@ -168,7 +168,7 @@ public class TestFeaturesConfig
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
                 .setEnableNewStatsCalculator(false)
                 .setDistributedIndexJoinsEnabled(true)
-                .setJoinDistributionType(REPLICATED)
+                .setJoinDistributionType(BROADCAST)
                 .setGroupedExecutionForAggregationEnabled(true)
                 .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(true)

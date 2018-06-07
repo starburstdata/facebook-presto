@@ -45,7 +45,7 @@ public class TestDetermineJoinDistributionType
     public void testDetermineDistributionType()
     {
         testDetermineDistributionType(JoinDistributionType.REPARTITIONED, INNER, DistributionType.PARTITIONED);
-        testDetermineDistributionType(JoinDistributionType.REPLICATED, INNER, DistributionType.REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.BROADCAST, INNER, DistributionType.REPLICATED);
         testDetermineDistributionType(JoinDistributionType.AUTOMATIC, INNER, DistributionType.PARTITIONED);
     }
 
@@ -53,7 +53,7 @@ public class TestDetermineJoinDistributionType
     public void testDetermineDistributionTypeForLeftOuter()
     {
         testDetermineDistributionType(JoinDistributionType.REPARTITIONED, LEFT, DistributionType.PARTITIONED);
-        testDetermineDistributionType(JoinDistributionType.REPLICATED, LEFT, DistributionType.REPLICATED);
+        testDetermineDistributionType(JoinDistributionType.BROADCAST, LEFT, DistributionType.REPLICATED);
         testDetermineDistributionType(JoinDistributionType.AUTOMATIC, LEFT, DistributionType.PARTITIONED);
     }
 
@@ -83,8 +83,8 @@ public class TestDetermineJoinDistributionType
     {
         testRepartitionRightOuter(JoinDistributionType.REPARTITIONED, FULL);
         testRepartitionRightOuter(JoinDistributionType.REPARTITIONED, RIGHT);
-        testRepartitionRightOuter(JoinDistributionType.REPLICATED, FULL);
-        testRepartitionRightOuter(JoinDistributionType.REPLICATED, RIGHT);
+        testRepartitionRightOuter(JoinDistributionType.BROADCAST, FULL);
+        testRepartitionRightOuter(JoinDistributionType.BROADCAST, RIGHT);
         testRepartitionRightOuter(JoinDistributionType.AUTOMATIC, FULL);
         testRepartitionRightOuter(JoinDistributionType.AUTOMATIC, RIGHT);
     }

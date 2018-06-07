@@ -125,7 +125,7 @@ public class FeaturesConfig
 
     public enum JoinDistributionType
     {
-        REPLICATED,
+        BROADCAST,
         REPARTITIONED,
         AUTOMATIC;
 
@@ -136,7 +136,7 @@ public class FeaturesConfig
 
         public boolean canReplicate()
         {
-            return this == REPLICATED || this == AUTOMATIC;
+            return this == BROADCAST || this == AUTOMATIC;
         }
     }
 
