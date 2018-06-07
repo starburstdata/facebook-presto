@@ -20,6 +20,7 @@ import com.facebook.presto.cost.CostProvider;
 import com.facebook.presto.cost.PlanNodeCostEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -55,6 +56,7 @@ import static com.facebook.presto.SystemSessionProperties.getJoinDistributionTyp
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.INFINITE_COST;
 import static com.facebook.presto.cost.PlanNodeCostEstimate.UNKNOWN_COST;
+import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
@@ -80,6 +82,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.powerSet;
 import static com.google.common.collect.Streams.stream;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ReorderJoins
@@ -116,14 +119,14 @@ public class ReorderJoins
     {
         // We check that join distribution type is absent because we only want to do this transformation once (reordered joins will have distribution type already set).
         MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), JOIN_LIMIT);
-
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 context.getSession(),
                 context.getCostProvider(),
                 costComparator,
                 context.getIdAllocator(),
                 multiJoinNode.getFilter(),
-                context.getLookup());
+                context.getLookup(),
+                context.getTimeoutInMillis());
         JoinEnumerationResult result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
         if (!result.getPlanNode().isPresent()) {
             return Result.empty();
@@ -142,11 +145,13 @@ public class ReorderJoins
         private final Expression allFilter;
         private final EqualityInference allFilterInference;
         private final Lookup lookup;
+        private final long timeoutInMillis;
+        private final long startTimeInNanos = System.nanoTime();
 
         private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
 
         @VisibleForTesting
-        JoinEnumerator(Session session, CostProvider costProvider, CostComparator costComparator, PlanNodeIdAllocator idAllocator, Expression filter, Lookup lookup)
+        JoinEnumerator(Session session, CostProvider costProvider, CostComparator costComparator, PlanNodeIdAllocator idAllocator, Expression filter, Lookup lookup, long timeoutInMillis)
         {
             this.session = requireNonNull(session, "session is null");
             this.costProvider = requireNonNull(costProvider, "costProvider is null");
@@ -155,10 +160,13 @@ public class ReorderJoins
             this.allFilter = requireNonNull(filter, "filter is null");
             this.allFilterInference = createEqualityInference(filter);
             this.lookup = requireNonNull(lookup, "lookup is null");
+            this.timeoutInMillis = timeoutInMillis;
         }
 
         private JoinEnumerationResult chooseJoinOrder(Set<PlanNode> sources, List<Symbol> outputSymbols)
         {
+            checkTimeoutNotExceeded();
+
             Set<PlanNode> multiJoinKey = ImmutableSet.copyOf(sources);
             JoinEnumerationResult bestResult = memo.get(multiJoinKey);
             if (bestResult == null) {
@@ -188,6 +196,13 @@ public class ReorderJoins
 
             bestResult.planNode.ifPresent((planNode) -> log.debug("Least cost join was: %s", planNode));
             return bestResult;
+        }
+
+        private void checkTimeoutNotExceeded()
+        {
+            if (((System.nanoTime() - startTimeInNanos) / 1_000_000) >= timeoutInMillis) {
+                throw new PrestoException(OPTIMIZER_TIMEOUT, format("The optimizer exhausted the time limit of %d ms", timeoutInMillis));
+            }
         }
 
         /**

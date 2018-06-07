@@ -55,6 +55,9 @@ import static org.testng.Assert.fail;
 
 public class RuleAssert
 {
+    // 2.5 minute timeout
+    private static final int OPTIMIZER_TIMEOUT_MS = 150_000;
+
     private final Metadata metadata;
     private StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -247,6 +250,12 @@ public class RuleAssert
             public CostProvider getCostProvider()
             {
                 return costProvider;
+            }
+
+            @Override
+            public long getTimeoutInMillis()
+            {
+                return OPTIMIZER_TIMEOUT_MS;
             }
         };
     }
