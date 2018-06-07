@@ -67,6 +67,7 @@ public class FeaturesConfig
     private boolean groupedExecutionForAggregationEnabled;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
+    private boolean reorderJoins = true;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private int maxReorderedTables = 10;
     private boolean redistributeWrites = true;
@@ -359,6 +360,19 @@ public class FeaturesConfig
     public boolean isFastInequalityJoins()
     {
         return fastInequalityJoins;
+    }
+
+    public boolean isJoinReorderingEnabled()
+    {
+        return reorderJoins;
+    }
+
+    @Config("reorder-joins")
+    @ConfigDescription("Experimental: Reorder joins to optimize plan")
+    public FeaturesConfig setJoinReorderingEnabled(boolean reorderJoins)
+    {
+        this.reorderJoins = reorderJoins;
+        return this;
     }
 
     public JoinReorderingStrategy getJoinReorderingStrategy()
