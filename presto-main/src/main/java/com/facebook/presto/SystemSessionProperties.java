@@ -47,6 +47,7 @@ public final class SystemSessionProperties
 {
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
+    public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
@@ -123,6 +124,12 @@ public final class SystemSessionProperties
                         "Compute hash codes for distribution, joins, and aggregations early in query plan",
                         featuresConfig.isOptimizeHashGeneration(),
                         false),
+                booleanSessionProperty(
+                        DISTRIBUTED_JOIN,
+                        "Use a distributed join instead of a broadcast join",
+                        featuresConfig.isDistributedJoinsEnabled(),
+                        false),
+
                 new PropertyMetadata<>(
                         JOIN_DISTRIBUTION_TYPE,
                         format("The join method to use. Options are %s",
@@ -462,6 +469,11 @@ public final class SystemSessionProperties
 
     public static JoinDistributionType getJoinDistributionType(Session session)
     {
+        // distributed_join takes precedence until we remove it
+        if (!session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class)) {
+            return JoinDistributionType.BROADCAST;
+        }
+
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
