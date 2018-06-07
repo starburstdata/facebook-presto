@@ -52,7 +52,7 @@ public class DetermineJoinDistributionType
     {
         JoinNode.Type type = node.getType();
         if (type == RIGHT || type == FULL) {
-            // With REPLICATED, the unmatched rows from right-side would be duplicated.
+            // With BROADCAST, the unmatched rows from right-side would be duplicated.
             return PARTITIONED;
         }
 

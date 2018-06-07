@@ -488,7 +488,7 @@ public class TestLogicalPlanner
     public void testBroadcastCorrelatedSubqueryAvoidsRemoteExchangeBeforeAggregation()
     {
         Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.REPLICATED.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .build();
 
@@ -533,7 +533,7 @@ public class TestLogicalPlanner
     public void testUsesDistributedJoinIfNaturallyPartitionedOnProbeSymbols()
     {
         Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.REPLICATED.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(FORCE_SINGLE_NODE_OUTPUT, Boolean.toString(false))
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
                 .build();

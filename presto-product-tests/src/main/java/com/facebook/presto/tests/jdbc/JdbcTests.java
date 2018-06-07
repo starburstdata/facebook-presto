@@ -278,8 +278,8 @@ public class JdbcTests
         final String defaultValue = new FeaturesConfig().getJoinDistributionType().name();
 
         assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
-        setSessionProperty(connection(), joinDistributionType, "REPLICATED");
-        assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo("REPLICATED");
+        setSessionProperty(connection(), joinDistributionType, "BROADCAST");
+        assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo("BROADCAST");
         resetSessionProperty(connection(), joinDistributionType);
         assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
     }
