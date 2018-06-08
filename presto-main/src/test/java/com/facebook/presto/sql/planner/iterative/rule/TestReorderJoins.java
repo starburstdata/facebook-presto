@@ -47,6 +47,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -214,7 +215,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, REPLICATED.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .withStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
