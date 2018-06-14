@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -290,8 +291,8 @@ public final class SystemSessionProperties
                         false),
                 booleanSessionProperty(
                         REORDER_JOINS,
-                        "Experimental: Reorder joins to optimize plan",
-                        featuresConfig.isJoinReorderingEnabled(),
+                        "(DEPRECATED) Reorder joins to remove unnecessary cross joins. If this is set, join_reordering_strategy will be ignored",
+                        null,
                         false),
                 new PropertyMetadata<>(
                         JOIN_REORDERING_STRATEGY,
@@ -587,8 +588,12 @@ public final class SystemSessionProperties
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
     {
-        if (!session.getSystemProperty(REORDER_JOINS, Boolean.class)) {
-            return NONE;
+        Boolean reorderJoins = session.getSystemProperty(REORDER_JOINS, Boolean.class);
+        if (reorderJoins != null) {
+            if (!reorderJoins) {
+                return NONE;
+            }
+            return ELIMINATE_CROSS_JOINS;
         }
         return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
     }
