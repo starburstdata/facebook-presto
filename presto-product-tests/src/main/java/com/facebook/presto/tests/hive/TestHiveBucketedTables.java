@@ -59,8 +59,6 @@ public class TestHiveBucketedTables
             .setNoData()
             .build();
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition BUCKETED_EMPTY_NATION = bucketTableDefinition("bucket_empty_nation", false, false);
-    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_SORTED_NATION = bucketTableDefinition("bucket_sort_nation", true, false);
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_PARTITIONED_NATION = bucketTableDefinition("bucket_partition_nation", false, true);
@@ -86,7 +84,6 @@ public class TestHiveBucketedTables
     public Requirement getRequirements(Configuration configuration)
     {
         return Requirements.compose(
-                MutableTableRequirement.builder(BUCKETED_EMPTY_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_PARTITIONED_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_NATION_PREPATED).withState(PREPARED).build(),
@@ -201,7 +198,7 @@ public class TestHiveBucketedTables
     public void testSelectFromEmptyBucketedTableEmptyTablesNotAllowed()
             throws SQLException
     {
-        String tableName = mutableTableInstanceOf(BUCKETED_EMPTY_NATION).getNameInDatabase();
+        String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
         query(format("SELECT count(*) FROM %s", tableName));
     }
 
@@ -209,7 +206,7 @@ public class TestHiveBucketedTables
     public void testSelectFromEmptyBucketedTableEmptyTablesAllowed()
             throws SQLException
     {
-        String tableName = mutableTableInstanceOf(BUCKETED_EMPTY_NATION).getNameInDatabase();
+        String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
         enableEmptyBucketedPartitions();
         assertThat(query(format("SELECT count(*) FROM %s", tableName)))
                 .containsExactly(row(0));
@@ -219,7 +216,7 @@ public class TestHiveBucketedTables
     public void testSelectFromIncompleteBucketedTableEmptyTablesAllowed()
             throws SQLException
     {
-        String tableName = mutableTableInstanceOf(BUCKETED_EMPTY_NATION).getNameInDatabase();
+        String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
         enableEmptyBucketedPartitions();
         populateRowToHiveTable(tableName, ImmutableList.of("2", "'name'", "2", "'comment'"), Optional.empty());
         // insert one row into nation
