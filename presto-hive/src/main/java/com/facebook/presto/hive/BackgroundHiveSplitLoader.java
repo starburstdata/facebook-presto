@@ -503,10 +503,6 @@ public class BackgroundHiveSplitLoader
         // - XXXXXXXX - is task id
         // - Y - is attempt id
         // - SUFFIX - is optional copy_N suffix
-
-        // this method will only be used if number of files in directory does not match number of partitions
-        // even if multi file bucketing is enabled.
-
         String bucketId = Iterables.getFirst(BUCKET_ID_SPLITTER.split(fileName), "");
         checkState(!bucketId.isEmpty(), "Got empty string as bucket id");
         return bucketId;
