@@ -68,6 +68,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -101,7 +103,8 @@ public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
-    private static final Splitter BUCKET_ID_SPLITTER = Splitter.on('_');
+    private static final Pattern PRESTO_BUCKET_PATTERN = Pattern.compile(".*_bucket-([0-9]{5}).*");
+    private static final Splitter HIVE_BUCKET_ID_SPLITTER = Splitter.on('_');
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
@@ -495,12 +498,17 @@ public class BackgroundHiveSplitLoader
 
     private static String getBucketId(String fileName)
     {
+        Matcher prestoBucketMatcher = PRESTO_BUCKET_PATTERN.matcher(fileName);
+        if (prestoBucketMatcher.matches()) {
+            return prestoBucketMatcher.group(1);
+        }
+
         // this matches the observed Hive's behaviour during insert. Then files are named using M/R fremwork using
         // XXXXXXXX_Y_SUFFIX pattern where:
         // - XXXXXXXX - is task id
         // - Y - is attempt id
         // - SUFFIX - is optional copy_N suffix
-        String bucketId = Iterables.getFirst(BUCKET_ID_SPLITTER.split(fileName), "");
+        String bucketId = Iterables.getFirst(HIVE_BUCKET_ID_SPLITTER.split(fileName), "");
         checkState(!bucketId.isEmpty(), "Got empty string as bucket id");
         return bucketId;
     }

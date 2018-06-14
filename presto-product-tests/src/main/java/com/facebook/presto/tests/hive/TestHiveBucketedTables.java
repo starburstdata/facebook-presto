@@ -39,6 +39,7 @@ import static com.facebook.presto.tests.utils.TableDefinitionUtils.mutableTableI
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.PREPARED;
 import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
@@ -52,6 +53,11 @@ public class TestHiveBucketedTables
 {
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_NATION = bucketTableDefinition("bucket_nation", false, false);
+    @TableDefinitionsRepository.RepositoryTableDefinition
+    public static final HiveTableDefinition BUCKETED_NATION_PREPATED = HiveTableDefinition.builder("bucket_nation_prepared")
+            .setCreateTableDDLTemplate("Table %NAME% should be only used with CTAS queries")
+            .setNoData()
+            .build();
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_EMPTY_NATION = bucketTableDefinition("bucket_empty_nation", false, false);
     @TableDefinitionsRepository.RepositoryTableDefinition
@@ -83,6 +89,7 @@ public class TestHiveBucketedTables
                 MutableTableRequirement.builder(BUCKETED_EMPTY_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_PARTITIONED_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_NATION).withState(CREATED).build(),
+                MutableTableRequirement.builder(BUCKETED_NATION_PREPATED).withState(PREPARED).build(),
                 MutableTableRequirement.builder(BUCKETED_SORTED_NATION).withState(CREATED).build(),
                 immutableTable(NATION));
     }
@@ -107,10 +114,6 @@ public class TestHiveBucketedTables
         populateHiveTable(tableName, NATION.getName());
 
         assertThat(query(format("SELECT * FROM %s", tableName))).matches(PRESTO_NATION_RESULT);
-        assertThat(query(format("SELECT count(*) FROM %s WHERE n_nationkey = 1", tableName)))
-                .containsExactly(row(1));
-        assertThat(query(format("SELECT count(*) FROM %s n JOIN %s n1 ON n.n_regionkey = n1.n_regionkey", tableName, tableName)))
-                .containsExactly(row(125));
     }
 
     @Test(groups = {HIVE_CONNECTOR},
@@ -224,6 +227,96 @@ public class TestHiveBucketedTables
                 .containsExactly(row(1));
         assertThat(query(format("select n_nationkey from %s where n_regionkey = 2", tableName)))
                 .containsExactly(row(2));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR})
+    public void testInsertPartitionedBucketed()
+            throws SQLException
+    {
+        String tableName = mutableTablesState().get(BUCKETED_NATION_PREPATED).getNameInDatabase();
+
+        String ctasQuery = "CREATE TABLE %s WITH (bucket_count = 4, bucketed_by = ARRAY['n_regionkey'], partitioned_by = ARRAY['part_key']) " +
+                "AS SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name as part_key FROM %s";
+        query(format(ctasQuery, tableName, NATION.getName()));
+
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+
+        enableMultiFileBucketing();
+
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+
+        enableEmptyBucketedPartitions();
+
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR})
+    public void testCreatePartitionedBucketedTableAsSelect()
+            throws SQLException
+    {
+        String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
+
+        query(format("INSERT INTO %s SELECT n_nationkey, n_name, n_regionkey, n_comment, n_name FROM %s", tableName, NATION.getName()));
+
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+
+        enableMultiFileBucketing();
+
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+
+        enableEmptyBucketedPartitions();
+
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(25));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE part_key='ALGERIA'", tableName))).containsExactly(row(1));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0 AND part_key='ALGERIA'", tableName))).containsExactly(row(1));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR})
+    public void testInsertIntoBucketedTables()
+    {
+        String tableName = mutableTablesState().get(BUCKETED_NATION).getNameInDatabase();
+
+        assertThat(() -> query(format("INSERT INTO %s SELECT * FROM %s", tableName, NATION.getName())))
+                .failsWithMessage("Cannot insert into bucketed unpartitioned Hive table");
+    }
+
+    @Test(groups = {HIVE_CONNECTOR})
+    public void testCreateBucketedTableAsSelect()
+            throws SQLException
+    {
+        String tableName = mutableTablesState().get(BUCKETED_NATION_PREPATED).getNameInDatabase();
+
+        // nations has 25 rows and NDV=5 for n_regionkey, setting bucket_count=10 will surely create empty buckets
+        query(format("CREATE TABLE %s WITH (bucket_count = 10, bucketed_by = ARRAY['n_regionkey']) AS SELECT * FROM %s", tableName, NATION.getName()));
+
+        assertThat(query(format("SELECT * FROM %s", tableName))).matches(PRESTO_NATION_RESULT);
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+
+        enableMultiFileBucketing();
+
+        assertThat(query(format("SELECT * FROM %s", tableName))).matches(PRESTO_NATION_RESULT);
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
+
+        enableEmptyBucketedPartitions();
+
+        assertThat(query(format("SELECT * FROM %s", tableName))).matches(PRESTO_NATION_RESULT);
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
     }
 
     private static void populateRowToHiveTable(String destination, List<String> values, Optional<String> partition)
