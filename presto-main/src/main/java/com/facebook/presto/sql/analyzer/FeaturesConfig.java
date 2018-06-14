@@ -62,7 +62,6 @@ public class FeaturesConfig
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
     private JoinDistributionType joinDistributionType = REPARTITIONED;
-    private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private boolean spatialJoinsEnabled = true;
@@ -140,11 +139,6 @@ public class FeaturesConfig
         {
             return this == BROADCAST || this == AUTOMATIC;
         }
-    }
-
-    public boolean isDistributedJoinsEnabled()
-    {
-        return distributedJoinsEnabled;
     }
 
     public double getCpuCostWeight()
@@ -300,13 +294,6 @@ public class FeaturesConfig
     public FeaturesConfig setJoinDistributionType(JoinDistributionType joinDistributionType)
     {
         this.joinDistributionType = requireNonNull(joinDistributionType, "joinDistributionType is null");
-        return this;
-    }
-
-    @Config("distributed-joins-enabled")
-    public FeaturesConfig setDistributedJoinsEnabled(boolean distributedJoinsEnabled)
-    {
-        this.distributedJoinsEnabled = distributedJoinsEnabled;
         return this;
     }
 

@@ -38,6 +38,8 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProp
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.REPARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -128,8 +130,8 @@ public final class SystemSessionProperties
                         false),
                 booleanSessionProperty(
                         DISTRIBUTED_JOIN,
-                        "Use a distributed join instead of a broadcast join",
-                        featuresConfig.isDistributedJoinsEnabled(),
+                        "(DEPRECATED) Use a distributed join instead of a broadcast join. If this is set join_distribution_type is ignored.",
+                        null,
                         false),
 
                 new PropertyMetadata<>(
@@ -477,8 +479,12 @@ public final class SystemSessionProperties
     public static JoinDistributionType getJoinDistributionType(Session session)
     {
         // distributed_join takes precedence until we remove it
-        if (!session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class)) {
-            return JoinDistributionType.BROADCAST;
+        Boolean distributedJoin = session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
+        if (distributedJoin != null) {
+            if (!distributedJoin) {
+                return BROADCAST;
+            }
+            return REPARTITIONED;
         }
 
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
