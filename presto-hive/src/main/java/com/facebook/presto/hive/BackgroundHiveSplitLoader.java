@@ -505,7 +505,7 @@ public class BackgroundHiveSplitLoader
 
         // this matches the observed Hive's behaviour during insert. Then files are named using M/R fremwork using
         // XXXXXXXX_Y_SUFFIX pattern where:
-        // - XXXXXXXX - is task id
+        // - XXXXXXXX - is task id, butg in case of bucketed tables it is a bucket id
         // - Y - is attempt id
         // - SUFFIX - is optional copy_N suffix
         String bucketId = Iterables.getFirst(HIVE_BUCKET_ID_SPLITTER.split(fileName), "");
