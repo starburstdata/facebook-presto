@@ -54,7 +54,7 @@ public interface Rule<T>
 
         CostProvider getCostProvider();
 
-        long getTimeoutInMillis();
+        void checkTimeoutNotExhausted();
     }
 
     final class Result

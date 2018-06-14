@@ -242,9 +242,11 @@ public class IterativeOptimizer
             }
 
             @Override
-            public long getTimeoutInMillis()
+            public void checkTimeoutNotExhausted()
             {
-                return context.timeoutInMilliseconds;
+                if (((System.nanoTime() - context.startTimeInNanos) / 1_000_000) >= context.timeoutInMilliseconds) {
+                    throw new PrestoException(OPTIMIZER_TIMEOUT, format("The optimizer exhausted the time limit of %d ms", context.timeoutInMilliseconds));
+                }
             }
         };
     }
