@@ -3,6 +3,7 @@ query-names: presto/tpcds/${query}.sql
 runs: 6
 prewarm-runs: 2
 before-execution: sleep-4s
+before-execution: presto/disable_cbo.sql
 frequency: 7
 database: hive
 tpcds_10: tpcds_sf10_orc
