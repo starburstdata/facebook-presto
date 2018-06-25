@@ -23,10 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
@@ -43,11 +42,12 @@ import static java.util.Objects.requireNonNull;
  */
 class MultiJoinNode
 {
-    private final Set<PlanNode> sources;
+    // Use a linked hash set to ensure optimizer is deterministic
+    private final LinkedHashSet<PlanNode> sources;
     private final Expression filter;
     private final List<Symbol> outputSymbols;
 
-    public MultiJoinNode(Set<PlanNode> sources, Expression filter, List<Symbol> outputSymbols)
+    public MultiJoinNode(LinkedHashSet<PlanNode> sources, Expression filter, List<Symbol> outputSymbols)
     {
         requireNonNull(sources, "sources is null");
         checkArgument(sources.size() > 1);
@@ -67,7 +67,7 @@ class MultiJoinNode
         return filter;
     }
 
-    public Set<PlanNode> getSources()
+    public LinkedHashSet<PlanNode> getSources()
     {
         return sources;
     }
@@ -103,7 +103,7 @@ class MultiJoinNode
 
     private static class JoinNodeFlattener
     {
-        private final Set<PlanNode> sources = new HashSet<>();
+        private final LinkedHashSet<PlanNode> sources = new LinkedHashSet<>();
         private final List<Expression> filters = new ArrayList<>();
         private final List<Symbol> outputSymbols;
         private final Lookup lookup;

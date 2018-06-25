@@ -38,16 +38,17 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -159,7 +160,7 @@ public class ReorderJoins
             this.context = context;
         }
 
-        private JoinEnumerationResult chooseJoinOrder(Set<PlanNode> sources, List<Symbol> outputSymbols)
+        private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
         {
             context.checkTimeoutNotExhausted();
 
@@ -216,17 +217,19 @@ public class ReorderJoins
                     .collect(toImmutableSet());
         }
 
-        JoinEnumerationResult createJoinAccordingToPartitioning(Set<PlanNode> sources, List<Symbol> outputSymbols, Set<Integer> partitioning)
+        JoinEnumerationResult createJoinAccordingToPartitioning(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols, Set<Integer> partitioning)
         {
             List<PlanNode> sourceList = ImmutableList.copyOf(sources);
-            Set<PlanNode> leftSources = partitioning.stream()
+            LinkedHashSet<PlanNode> leftSources = partitioning.stream()
                     .map(sourceList::get)
-                    .collect(toImmutableSet());
-            Set<PlanNode> rightSources = ImmutableSet.copyOf(Sets.difference(sources, leftSources));
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            LinkedHashSet<PlanNode> rightSources = sources.stream()
+                    .filter(source -> !leftSources.contains(source))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
             return createJoin(leftSources, rightSources, outputSymbols);
         }
 
-        private JoinEnumerationResult createJoin(Set<PlanNode> leftSources, Set<PlanNode> rightSources, List<Symbol> outputSymbols)
+        private JoinEnumerationResult createJoin(LinkedHashSet<PlanNode> leftSources, LinkedHashSet<PlanNode> rightSources, List<Symbol> outputSymbols)
         {
             Set<Symbol> leftSymbols = leftSources.stream()
                     .flatMap(node -> node.getOutputSymbols().stream())
@@ -320,7 +323,7 @@ public class ReorderJoins
             return joinPredicatesBuilder.build();
         }
 
-        private JoinEnumerationResult getJoinSource(Set<PlanNode> nodes, List<Symbol> outputSymbols)
+        private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, List<Symbol> outputSymbols)
         {
             if (nodes.size() == 1) {
                 PlanNode planNode = getOnlyElement(nodes);

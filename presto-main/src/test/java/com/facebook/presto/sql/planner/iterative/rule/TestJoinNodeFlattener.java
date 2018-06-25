@@ -25,11 +25,11 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashSet;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -103,7 +103,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1, b1, c1),
                 Optional.empty());
 
-        MultiJoinNode expected = new MultiJoinNode(ImmutableSet.of(leftJoin, valuesC), new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()), ImmutableList.of(a1, b1, c1));
+        MultiJoinNode expected = new MultiJoinNode(new LinkedHashSet<>(ImmutableList.of(leftJoin, valuesC)), new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()), ImmutableList.of(a1, b1, c1));
         assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
     }
 
@@ -138,7 +138,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1, b1),
                 Optional.empty());
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableSet.of(valuesA, valuesB, valuesC),
+                new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
                 and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference())),
                 ImmutableList.of(a1, b1));
         assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
@@ -183,7 +183,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableSet.of(valuesA, valuesB, valuesC),
+                new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
                 and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2));
         assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT), expected);
@@ -245,7 +245,7 @@ public class TestJoinNodeFlattener
                         e2),
                 Optional.empty());
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableSet.of(valuesA, valuesB, valuesC, valuesD, valuesE),
+                new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC, valuesD, valuesE)),
                 and(
                         new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()),
                         new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()),
@@ -314,7 +314,7 @@ public class TestJoinNodeFlattener
                         e2),
                 Optional.empty());
         MultiJoinNode expected = new MultiJoinNode(
-                ImmutableSet.of(join1, join2, valuesC),
+                new LinkedHashSet<>(ImmutableList.of(join1, join2, valuesC)),
                 and(
                         new ComparisonExpression(EQUAL, a1.toSymbolReference(), c1.toSymbolReference()),
                         new ComparisonExpression(EQUAL, b1.toSymbolReference(), e1.toSymbolReference())),

@@ -34,6 +34,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -93,7 +94,7 @@ public class TestJoinEnumerator
         Symbol a1 = planBuilder.symbol("A1", BIGINT);
         Symbol b1 = planBuilder.symbol("B1", BIGINT);
         MultiJoinNode multiJoinNode = new MultiJoinNode(
-                ImmutableSet.of(planBuilder.values(a1), planBuilder.values(b1)),
+                new LinkedHashSet<>(ImmutableList.of(planBuilder.values(a1), planBuilder.values(b1))),
                 TRUE_LITERAL,
                 ImmutableList.of(a1, b1));
         SymbolAllocator symbolAllocator = new SymbolAllocator();
