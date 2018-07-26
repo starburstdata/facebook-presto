@@ -23,9 +23,9 @@ import org.testng.annotations.Test;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 
-import static com.facebook.presto.tests.TemptoProductTestRunner.PRODUCT_TESTS_TIME_ZONE;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.TIMESTAMP;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
@@ -34,7 +34,6 @@ import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestodb.tempto.query.QueryExecutor.query;
-import static io.prestodb.tempto.util.DateTimeUtils.parseTimestampInLocalTime;
 import static java.util.Collections.nCopies;
 
 public class TestTimestampCompatibility
@@ -42,7 +41,7 @@ public class TestTimestampCompatibility
 {
     private static final String TABLE_NAME = "timestamp_compatibility";
     private static final String TIMESTAMP_LITERAL = "2000-01-01 07:13:55";
-    private static final Timestamp EXPECTED_TIMESTAMP = parseTimestampInLocalTime(TIMESTAMP_LITERAL, PRODUCT_TESTS_TIME_ZONE);
+    private static final Timestamp EXPECTED_TIMESTAMP = Timestamp.valueOf(LocalDateTime.of(2000, 1, 1, 7, 13, 55));
 
     @DataProvider(name = "storage_formats")
     public static Object[][] storageFormats()
