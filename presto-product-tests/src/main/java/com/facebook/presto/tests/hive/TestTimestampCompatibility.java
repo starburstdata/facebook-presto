@@ -65,7 +65,7 @@ public class TestTimestampCompatibility
 
     private static QueryAssert.Row singleNullRow()
     {
-        return new QueryAssert.Row(new ArrayList(nCopies(1, null)));
+        return new QueryAssert.Row(new ArrayList<>(nCopies(1, null)));
     }
 
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
