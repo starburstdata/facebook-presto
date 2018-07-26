@@ -91,10 +91,7 @@ public class TimestampRewriter
             return block;
         }
         return new LazyBlock(block.getPositionCount(), lazyBlock -> {
-            Block targetBlock = block;
-            if (block instanceof LazyBlock) {
-                targetBlock = ((LazyBlock) block).getBlock();
-            }
+            Block targetBlock = block.getLoadedBlock();
             lazyBlock.setBlock(modifyTimestampsInBlock(targetBlock, type, modification));
         });
     }
