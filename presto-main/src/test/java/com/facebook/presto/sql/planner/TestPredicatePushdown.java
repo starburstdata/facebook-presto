@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -22,6 +24,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -42,6 +46,13 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 public class TestPredicatePushdown
         extends BasePlanTest
 {
+    public TestPredicatePushdown()
+    {
+        super(ImmutableMap.of(
+                JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name(),
+                JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name()));
+    }
+
     @Test
     public void testNonStraddlingJoinExpression()
     {

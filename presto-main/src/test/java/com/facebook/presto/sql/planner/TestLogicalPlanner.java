@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
@@ -48,6 +49,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
@@ -101,6 +103,13 @@ import static org.testng.Assert.assertFalse;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    public TestLogicalPlanner()
+    {
+        super(ImmutableMap.of(
+                JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name(),
+                JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name()));
+    }
+
     @Test
     public void testAggregation()
     {
