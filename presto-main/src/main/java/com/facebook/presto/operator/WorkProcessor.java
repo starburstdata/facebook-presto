@@ -154,6 +154,11 @@ public interface WorkProcessor<T>
          * </ul>
          */
         ProcessorState<R> process(Optional<T> elementOptional);
+
+        default <Z> Transformation<T, Z> compose(Transformation<R, Z> transformation)
+        {
+            return WorkProcessorUtils.compose(this, transformation);
+        }
     }
 
     interface Process<T>

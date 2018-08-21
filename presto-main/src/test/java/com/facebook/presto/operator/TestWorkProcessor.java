@@ -36,6 +36,59 @@ import static org.testng.Assert.assertTrue;
 public class TestWorkProcessor
 {
     @Test
+    public void testCompose()
+    {
+        WorkProcessor<Integer> baseProcessor = processorFrom(ImmutableList.of(
+                ProcessorState.ofResult(1),
+                ProcessorState.yield(),
+                ProcessorState.ofResult(2),
+                ProcessorState.finished()));
+
+        SettableFuture<?> firstFuture = SettableFuture.create();
+        WorkProcessor.Transformation<Integer, Double> firstTransformation = transformationFrom(ImmutableList.of(
+                Transform.of(Optional.of(1), ProcessorState.ofResult(1.0d, false)),
+                Transform.of(Optional.of(1), ProcessorState.blocked(firstFuture)),
+                Transform.of(Optional.of(1), ProcessorState.ofResult(1.5d, true)),
+                Transform.of(Optional.of(2), ProcessorState.ofResult(2.0d, true)),
+                Transform.of(Optional.empty(), ProcessorState.ofResult(3.0d, false)),
+                Transform.of(Optional.empty(), ProcessorState.finished())));
+
+        WorkProcessor.Transformation<Double, String> secondTransformation = transformationFrom(ImmutableList.of(
+                Transform.of(Optional.of(1.0d), ProcessorState.needsMoreData()),
+                Transform.of(Optional.of(1.5d), ProcessorState.ofResult("a", false)),
+                Transform.of(Optional.of(1.5d), ProcessorState.ofResult("b", true)),
+                Transform.of(Optional.of(2.0d), ProcessorState.ofResult("c", true)),
+                Transform.of(Optional.of(3.0d), ProcessorState.yield()),
+                Transform.of(Optional.of(3.0d), ProcessorState.ofResult("d", true)),
+                Transform.of(Optional.empty(), ProcessorState.ofResult("e", false)),
+                Transform.of(Optional.empty(), ProcessorState.finished())));
+
+        WorkProcessor<String> processor = baseProcessor
+                .transform(firstTransformation
+                        .compose(secondTransformation));
+
+        // firstTransformation.blocked
+        assertBlocks(processor);
+        assertUnblocks(processor, firstFuture);
+
+        assertResult(processor, "a");
+        assertResult(processor, "b");
+
+        // baseScenario.yields
+        assertYields(processor);
+
+        assertResult(processor, "c");
+
+        // secondTransformation.yields
+        assertYields(processor);
+
+        assertResult(processor, "d");
+        assertResult(processor, "e");
+
+        assertFinishes(processor);
+    }
+
+    @Test
     public void testIterator()
     {
         WorkProcessor<Integer> processor = processorFrom(ImmutableList.of(

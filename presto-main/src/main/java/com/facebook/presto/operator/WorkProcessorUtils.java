@@ -37,6 +37,60 @@ public final class WorkProcessorUtils
 {
     private WorkProcessorUtils() {}
 
+    static <X, Y, Z> Transformation<X, Z> compose(Transformation<X, Y> firstTransformation, Transformation<Y, Z> secondTransformation)
+    {
+        requireNonNull(firstTransformation, "firstTransformation is null");
+        requireNonNull(secondTransformation, "secondTransformation is null");
+        return new Transformation<X, Z>()
+        {
+            Optional<X> elementOptional = Optional.empty();
+            boolean needsMoreData = true;
+            WorkProcessor<Z> processor = create(() -> {
+                if (!elementOptional.isPresent()) {
+                    if (needsMoreData) {
+                        return ProcessorState.finished();
+                    }
+
+                    needsMoreData = true;
+                    return ProcessorState.yield();
+                }
+
+                X element = elementOptional.get();
+                elementOptional = Optional.empty();
+                return ProcessorState.ofResult(element);
+            }).transform(firstTransformation)
+                    .transform(secondTransformation);
+
+            @Override
+            public ProcessorState<Z> process(Optional<X> elementOptional)
+            {
+                boolean finished = !elementOptional.isPresent();
+                if (!finished && needsMoreData) {
+                    this.elementOptional = elementOptional;
+                    needsMoreData = false;
+                }
+
+                if (processor.process()) {
+                    if (processor.isFinished()) {
+                        return ProcessorState.finished();
+                    }
+
+                    return ProcessorState.ofResult(processor.getResult(), false);
+                }
+
+                if (processor.isBlocked()) {
+                    return ProcessorState.blocked(processor.getBlockedFuture());
+                }
+
+                if (!finished && needsMoreData) {
+                    return ProcessorState.needsMoreData();
+                }
+
+                return ProcessorState.yield();
+            }
+        };
+    }
+
     static <T> Iterator<T> iteratorFrom(WorkProcessor<T> processor)
     {
         requireNonNull(processor, "processor is null");
