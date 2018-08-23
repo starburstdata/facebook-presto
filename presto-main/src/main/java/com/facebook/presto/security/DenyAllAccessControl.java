@@ -254,12 +254,6 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public Set<String> filterRoles(TransactionId transactionId, Identity identity, String catalogName, Set<String> roles)
-    {
-        return ImmutableSet.of();
-    }
-
-    @Override
     public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName)
     {
         denyShowCurrentRoles(catalogName);

@@ -192,12 +192,6 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public Set<String> filterRoles(TransactionId transactionId, Identity identity, String catalogName, Set<String> roles)
-    {
-        return roles;
-    }
-
-    @Override
     public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName)
     {
     }

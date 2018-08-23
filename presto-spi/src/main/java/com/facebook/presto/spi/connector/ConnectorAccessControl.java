@@ -314,14 +314,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Filter the list of roles to those visible to the identity.
-     */
-    default Set<String> filterRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName, Set<String> roles)
-    {
-        return Collections.emptySet();
-    }
-
-    /**
      * Check if identity is allowed to show current roles on the specified catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

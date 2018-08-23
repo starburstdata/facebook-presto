@@ -251,11 +251,6 @@ public interface AccessControl
     void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName);
 
     /**
-     * Filter the list of roles to those visible to the identity in the given catalog.
-     */
-    Set<String> filterRoles(TransactionId transactionId, Identity identity, String catalogName, Set<String> roles);
-
-    /**
      * Check if identity is allowed to show current roles on the specified catalog.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */

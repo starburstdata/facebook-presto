@@ -343,12 +343,6 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public Set<String> filterRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName, Set<String> roles)
-    {
-        return roles;
-    }
-
-    @Override
     public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
     {
     }

@@ -636,23 +636,6 @@ public class AccessControlManager
     }
 
     @Override
-    public Set<String> filterRoles(TransactionId transactionId, Identity identity, String catalogName, Set<String> roles)
-    {
-        requireNonNull(identity, "identity is null");
-        requireNonNull(roles, "roles is null");
-
-        if (filterCatalogs(identity, ImmutableSet.of(catalogName)).isEmpty()) {
-            return ImmutableSet.of();
-        }
-
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
-        if (entry != null) {
-            return entry.getAccessControl().filterRoles(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(catalogName), catalogName, roles);
-        }
-        return roles;
-    }
-
-    @Override
     public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName)
     {
         requireNonNull(identity, "identity is null");
