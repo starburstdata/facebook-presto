@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -83,6 +84,7 @@ public class WindowOperator
         private final PagesIndex.Factory pagesIndexFactory;
         private final boolean spillEnabled;
         private final SpillerFactory spillerFactory;
+        private final OrderingCompiler orderingCompiler;
 
         public WindowOperatorFactory(
                 int operatorId,
@@ -98,7 +100,8 @@ public class WindowOperator
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
-                SpillerFactory spillerFactory)
+                SpillerFactory spillerFactory,
+                OrderingCompiler orderingCompiler)
         {
             requireNonNull(sourceTypes, "sourceTypes is null");
             requireNonNull(planNodeId, "planNodeId is null");
@@ -128,6 +131,7 @@ public class WindowOperator
             this.expectedPositions = expectedPositions;
             this.spillEnabled = spillEnabled;
             this.spillerFactory = spillerFactory;
+            this.orderingCompiler = orderingCompiler;
         }
 
         @Override
@@ -149,7 +153,8 @@ public class WindowOperator
                     expectedPositions,
                     pagesIndexFactory,
                     spillEnabled,
-                    spillerFactory);
+                    spillerFactory,
+                    orderingCompiler);
         }
 
         @Override
@@ -175,7 +180,8 @@ public class WindowOperator
                     expectedPositions,
                     pagesIndexFactory,
                     spillEnabled,
-                    spillerFactory);
+                    spillerFactory,
+                    orderingCompiler);
         }
     }
 
@@ -206,7 +212,8 @@ public class WindowOperator
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
             boolean spillEnabled,
-            SpillerFactory spillerFactory)
+            SpillerFactory spillerFactory,
+            OrderingCompiler orderingCompiler)
     {
         requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(outputChannels, "outputChannels is null");
@@ -287,7 +294,7 @@ public class WindowOperator
                     operatorContext.aggregateRevocableMemoryContext(),
                     operatorContext.aggregateUserMemoryContext(),
                     spillerFactory,
-                    new SimplePageWithPositionComparator(sourceTypes, unGroupedOrderChannels, unGroupedOrdering)));
+                    orderingCompiler.compilePageWithPositionComparator(sourceTypes, unGroupedOrderChannels, unGroupedOrdering)));
 
             this.outputPages = WorkProcessor.create(new PagesSource())
                     .flatTransform(spillableProducePagesIndexes.get())

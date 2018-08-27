@@ -26,6 +26,7 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
@@ -747,6 +748,7 @@ public class TestWindowOperator
                 10,
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                new TestHashAggregationOperator.DummySpillerFactory());
+                new TestHashAggregationOperator.DummySpillerFactory(),
+                new OrderingCompiler());
     }
 }
