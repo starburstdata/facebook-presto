@@ -501,7 +501,7 @@ public class WindowOperator
         final PageWithPositionComparator pageWithPositionComparator;
 
         boolean resetPagesIndex;
-        Page pendingInput;
+        int pendingInputPosition;
 
         Optional<Page> currentSpillGroupRowPage;
         Optional<Spiller> spiller;
@@ -533,7 +533,7 @@ public class WindowOperator
         }
 
         @Override
-        public ProcessorState<WorkProcessor<PagesIndexWithHashStrategies>> process(Optional<Page> inputPageOptional)
+        public ProcessorState<WorkProcessor<PagesIndexWithHashStrategies>> process(Optional<Page> pendingInputOptional)
         {
             if (resetPagesIndex) {
                 inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
@@ -544,35 +544,32 @@ public class WindowOperator
                     spiller = Optional.empty();
                 }
 
-                updateMemoryUsage(false);
+                updateMemoryUsage(pendingInputOptional, false);
                 resetPagesIndex = false;
             }
 
-            boolean finishing = !inputPageOptional.isPresent();
-            if (finishing && pendingInput == null && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
+            boolean finishing = !pendingInputOptional.isPresent();
+            if (finishing && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
                 localRevokableMemoryContext.close();
                 localUserMemoryContext.close();
                 return finished();
             }
 
-            if (pendingInput == null && !finishing) {
-                pendingInput = inputPageOptional.get();
-            }
-
-            if (pendingInput != null) {
-                pendingInput = updatePagesIndex(inMemoryPagesIndexWithHashStrategies, pendingInput, currentSpillGroupRowPage);
-                updateMemoryUsage(true);
+            if (!finishing) {
+                Page pendingInput = pendingInputOptional.get();
+                pendingInputPosition = updatePagesIndex(inMemoryPagesIndexWithHashStrategies, pendingInput, pendingInputPosition, currentSpillGroupRowPage);
+                updateMemoryUsage(pendingInputOptional, true);
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (pendingInput != null || finishing) {
+            if (pendingInputOptional.map(page -> pendingInputPosition < page.getPositionCount()).orElse(true)) {
                 sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
-                updateMemoryUsage(false);
+                updateMemoryUsage(pendingInputOptional, false);
                 resetPagesIndex = true;
                 return ofResult(unspill(), false);
             }
 
-            // pendingInput == null && !operatorFinishing
+            pendingInputPosition = 0;
             return needsMoreData();
         }
 
@@ -649,15 +646,12 @@ public class WindowOperator
             return mergedPages.transform(new ProducePagesIndexes(mergedPagesIndexWithHashStrategies, ImmutableList.of(), ImmutableList.of(), operatorContext.aggregateUserMemoryContext()));
         }
 
-        void updateMemoryUsage(boolean revokablePagesIndex)
+        void updateMemoryUsage(Optional<Page> pendingInputOptional, boolean revokablePagesIndex)
         {
             long pagesIndexBytes = inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes();
             long nonRevokableBytes = 0L;
 
-            if (pendingInput != null) {
-                nonRevokableBytes = pendingInput.getRetainedSizeInBytes();
-            }
-
+            nonRevokableBytes += pendingInputOptional.map(Page::getRetainedSizeInBytes).orElse(0L);
             nonRevokableBytes += currentSpillGroupRowPage.map(Page::getRetainedSizeInBytes).orElse(0L);
 
             if (revokablePagesIndex) {
@@ -674,12 +668,13 @@ public class WindowOperator
     private class ProducePagesIndexes
             implements Transformation<Page, PagesIndexWithHashStrategies>
     {
-        private PagesIndexWithHashStrategies pagesIndexWithHashStrategies;
-        private List<Integer> orderChannels;
-        private List<SortOrder> ordering;
-        private LocalMemoryContext localMemoryContext;
-        private boolean resetPagesIndex;
-        private Page pendingInput;
+        final PagesIndexWithHashStrategies pagesIndexWithHashStrategies;
+        final List<Integer> orderChannels;
+        final List<SortOrder> ordering;
+        final LocalMemoryContext localMemoryContext;
+
+        boolean resetPagesIndex;
+        int pendingInputPosition;
 
         ProducePagesIndexes(
                 PagesIndexWithHashStrategies pagesIndexWithHashStrategies,
@@ -694,46 +689,41 @@ public class WindowOperator
         }
 
         @Override
-        public ProcessorState<PagesIndexWithHashStrategies> process(Optional<Page> inputPageOptional)
+        public ProcessorState<PagesIndexWithHashStrategies> process(Optional<Page> pendingInputOptional)
         {
             if (resetPagesIndex) {
                 pagesIndexWithHashStrategies.pagesIndex.clear();
-                updateMemoryUsage();
+                updateMemoryUsage(pendingInputOptional);
                 resetPagesIndex = false;
             }
 
-            boolean finishing = !inputPageOptional.isPresent();
-            if (finishing && pendingInput == null && pagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
+            boolean finishing = !pendingInputOptional.isPresent();
+            if (finishing && pagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
                 localMemoryContext.close();
                 return finished();
             }
 
-            if (pendingInput == null && !finishing) {
-                pendingInput = inputPageOptional.get();
-            }
-
-            if (pendingInput != null) {
-                pendingInput = updatePagesIndex(pagesIndexWithHashStrategies, pendingInput, Optional.empty());
-                updateMemoryUsage();
+            if (!finishing) {
+                Page pendingInput = pendingInputOptional.get();
+                pendingInputPosition = updatePagesIndex(pagesIndexWithHashStrategies, pendingInput, pendingInputPosition, Optional.empty());
+                updateMemoryUsage(pendingInputOptional);
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (pendingInput != null || finishing) {
+            if (pendingInputOptional.map(page -> pendingInputPosition < page.getPositionCount()).orElse(true)) {
                 sortPagesIndexIfNecessary(pagesIndexWithHashStrategies, orderChannels, ordering);
                 resetPagesIndex = true;
                 return ofResult(pagesIndexWithHashStrategies, false);
             }
 
-            // pendingInput == null && !operatorFinishing
+            pendingInputPosition = 0;
             return needsMoreData();
         }
 
-        void updateMemoryUsage()
+        void updateMemoryUsage(Optional<Page> pendingInputOptional)
         {
             long bytes = pagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes();
-            if (pendingInput != null) {
-                bytes += pendingInput.getRetainedSizeInBytes();
-            }
+            bytes += pendingInputOptional.map(Page::getRetainedSizeInBytes).orElse(0L);
             localMemoryContext.setBytes(bytes);
         }
     }
@@ -772,9 +762,9 @@ public class WindowOperator
         }
     }
 
-    private Page updatePagesIndex(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, Page page, Optional<Page> currentSpillGroupRowPage)
+    private int updatePagesIndex(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, Page page, int startPosition, Optional<Page> currentSpillGroupRowPage)
     {
-        checkArgument(page.getPositionCount() > 0);
+        checkArgument(page.getPositionCount() - startPosition > 0);
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
         Page preGroupedPage = rearrangePage(page, pagesIndexWithHashStrategies.preGroupedPartitionChannels);
@@ -782,30 +772,30 @@ public class WindowOperator
         PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
         PagesHashStrategy preGroupedPartitionHashStrategy = pagesIndexWithHashStrategies.preGroupedPartitionHashStrategy;
         if (currentSpillGroupRowPage.isPresent()) {
-            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, rearrangePage(currentSpillGroupRowPage.get(), pagesIndexWithHashStrategies.preGroupedPartitionChannels), 0, preGroupedPage)) {
-                return page;
+            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, rearrangePage(currentSpillGroupRowPage.get(), pagesIndexWithHashStrategies.preGroupedPartitionChannels), startPosition, preGroupedPage)) {
+                return startPosition;
             }
         }
 
-        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage)) {
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, startPosition, preGroupedPage)) {
             // Find the position where the pre-grouped columns change
-            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, 0);
+            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, startPosition);
 
             // Add the section of the page that contains values for the current group
-            pagesIndex.addPage(page.getRegion(0, groupEnd));
+            pagesIndex.addPage(page.getRegion(startPosition, groupEnd - startPosition));
 
             if (page.getPositionCount() - groupEnd > 0) {
                 // Save the remaining page, which may contain multiple partitions
-                return page.getRegion(groupEnd, page.getPositionCount() - groupEnd);
+                return groupEnd;
             }
             else {
                 // Page fully consumed
-                return null;
+                return page.getPositionCount();
             }
         }
         else {
-            // We had previous results buffered, but the new page starts with new group values
-            return page;
+            // We had previous results buffered, but the remaining page starts with new group values
+            return startPosition;
         }
     }
 
