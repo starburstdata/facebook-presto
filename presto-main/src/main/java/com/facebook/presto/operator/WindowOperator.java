@@ -354,6 +354,7 @@ public class WindowOperator
         }
 
         operatorPendingInput = page;
+        operatorPendingInputMemoryContext.setBytes(operatorPendingInput.getRetainedSizeInBytes());
     }
 
     @Override
