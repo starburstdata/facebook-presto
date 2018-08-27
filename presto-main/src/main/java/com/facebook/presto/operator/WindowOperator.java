@@ -579,15 +579,15 @@ public class WindowOperator
         {
             checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
 
+            if (localRevokableMemoryContext.getBytes() == 0 || inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
+                return Futures.immediateFuture(null);
+            }
+
             if (!spiller.isPresent()) {
                 spiller = Optional.of(spillerFactory.create(
                         sourceTypes,
                         operatorContext.getSpillContext(),
                         operatorContext.newAggregateSystemMemoryContext()));
-            }
-
-            if (inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
-                return Futures.immediateFuture(null);
             }
 
             sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
@@ -613,8 +613,16 @@ public class WindowOperator
 
         void finishRevokeMemory()
         {
+            // there was nothing to spill
+            if (localRevokableMemoryContext.getBytes() == 0) {
+                return;
+            }
+
             inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
-            updateMemoryUsage(false);
+
+            // PagesIndex overhead memory is non-revokable
+            localRevokableMemoryContext.setBytes(0L);
+            localUserMemoryContext.setBytes(localUserMemoryContext.getBytes() + inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes());
         }
 
         WorkProcessor<PagesIndexWithHashStrategies> unspill()
