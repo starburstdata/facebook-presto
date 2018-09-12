@@ -202,7 +202,8 @@ public class TestQuerySessionSupplier
     }
 
     @Test
-    public void testSqlPathCreation() {
+    public void testSqlPathCreation()
+    {
         ImmutableList.Builder<SqlPathElement> correctValues = ImmutableList.builder();
         correctValues.add(new SqlPathElement(
                 Optional.of(new Identifier("normal")),
