@@ -23,10 +23,16 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 
 import java.io.File;
+import java.util.Random;
 
 public class TestHiveClientGlueMetastore
         extends AbstractTestHiveClientLocal
 {
+    public TestHiveClientGlueMetastore()
+    {
+        super("test_glue_" + new Random().nextInt(100000000));
+    }
+
     /**
      * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
      * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
