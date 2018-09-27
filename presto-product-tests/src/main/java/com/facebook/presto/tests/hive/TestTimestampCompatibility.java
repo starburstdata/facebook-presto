@@ -159,8 +159,8 @@ public class TestTimestampCompatibility
 
         QueryResult prestoResult = query(String.format("SELECT ts[1] FROM %s", TABLE_NAME));
         QueryResult hiveResult = onHive().executeQuery(String.format("SELECT ts[0] FROM %s", TABLE_NAME));
-        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP), row(EXPECTED_TIMESTAMP));
-        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP), row(EXPECTED_TIMESTAMP));
+        assertThat(hiveResult).containsOnly(row(EXPECTED_TIMESTAMP), row(EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsOnly(row(EXPECTED_TIMESTAMP), row(EXPECTED_TIMESTAMP));
     }
 
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
@@ -182,8 +182,8 @@ public class TestTimestampCompatibility
 
         QueryResult prestoResult = query(String.format("SELECT CASE WHEN ts IS NULL THEN NULL ELSE ts[1] END FROM %s", TABLE_NAME));
         QueryResult hiveResult = onHive().executeQuery(String.format("SELECT CASE WHEN ts IS NULL THEN NULL ELSE ts[0] END FROM %s", TABLE_NAME));
-        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow(), row(EXPECTED_TIMESTAMP));
-        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow(), row(EXPECTED_TIMESTAMP));
+        assertThat(hiveResult).containsOnly(row(EXPECTED_TIMESTAMP), singleNullRow(), row(EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsOnly(row(EXPECTED_TIMESTAMP), singleNullRow(), row(EXPECTED_TIMESTAMP));
     }
 
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
