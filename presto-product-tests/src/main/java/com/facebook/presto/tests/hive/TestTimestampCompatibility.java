@@ -95,8 +95,8 @@ public class TestTimestampCompatibility
 
         QueryResult prestoResult = query(String.format("SELECT * FROM %s", TABLE_NAME));
         QueryResult hiveResult = onHive().executeQuery(String.format("SELECT * FROM %s", TABLE_NAME));
-        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow());
-        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP), singleNullRow());
+        assertThat(hiveResult).containsOnly(row(EXPECTED_TIMESTAMP), singleNullRow());
+        assertThat(prestoResult).containsOnly(row(EXPECTED_TIMESTAMP), singleNullRow());
     }
 
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
