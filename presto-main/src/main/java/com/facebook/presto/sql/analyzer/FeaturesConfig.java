@@ -66,7 +66,7 @@ public class FeaturesConfig
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
     private JoinDistributionType joinDistributionType = PARTITIONED;
-    private DataSize joinMaxBroadcastTableSize = new DataSize(100, DataSize.Unit.MEGABYTE);
+    private DataSize joinMaxBroadcastTableSize = new DataSize(1000, DataSize.Unit.MEGABYTE);
     private boolean colocatedJoinsEnabled;
     private boolean groupedExecutionForAggregationEnabled;
     private int concurrentLifespansPerTask;
