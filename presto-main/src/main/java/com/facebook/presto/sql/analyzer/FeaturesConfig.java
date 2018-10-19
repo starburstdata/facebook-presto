@@ -100,6 +100,7 @@ public class FeaturesConfig
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private boolean spillEnabled;
+    private boolean spillOrderBy; // must be explicitly enabled after enabling spill in general
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -552,6 +553,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
+        return this;
+    }
+
+    public boolean isSpillOrderBy()
+    {
+        return spillOrderBy;
+    }
+
+    @Config("experimental.spill-order-by")
+    public FeaturesConfig setSpillOrderBy(boolean spillOrderBy)
+    {
+        this.spillOrderBy = spillOrderBy;
         return this;
     }
 
