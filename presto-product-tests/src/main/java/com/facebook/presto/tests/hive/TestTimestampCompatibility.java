@@ -383,8 +383,8 @@ public class TestTimestampCompatibility
 
         QueryResult prestoResult = query(String.format("SELECT c.ts1, c.ts2, c.ts3 FROM %s", TABLE_NAME));
         QueryResult hiveResult = onHive().executeQuery(String.format("SELECT c.ts1, c.ts2, c.ts3 FROM %s", TABLE_NAME));
-        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
-        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
+        assertThat(hiveResult).containsOnly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsOnly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
     }
 
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
