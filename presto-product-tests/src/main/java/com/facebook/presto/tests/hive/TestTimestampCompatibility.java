@@ -114,8 +114,8 @@ public class TestTimestampCompatibility
 
         QueryResult prestoResult = query(String.format("SELECT ts[1], ts[2] FROM %s", TABLE_NAME));
         QueryResult hiveResult = onHive().executeQuery(String.format("SELECT ts[0], ts[1] FROM %s", TABLE_NAME));
-        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP));
-        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP));
+        assertThat(hiveResult).containsOnly(row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsOnly(row(EXPECTED_TIMESTAMP, EXPECTED_TIMESTAMP));
     }
 
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
@@ -136,8 +136,8 @@ public class TestTimestampCompatibility
 
         QueryResult prestoResult = query(String.format("SELECT ts[1], ts[2], ts[3] FROM %s", TABLE_NAME));
         QueryResult hiveResult = onHive().executeQuery(String.format("SELECT ts[0], ts[1], ts[2] FROM %s", TABLE_NAME));
-        assertThat(prestoResult).containsExactly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
-        assertThat(hiveResult).containsExactly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
+        assertThat(prestoResult).containsOnly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
+        assertThat(hiveResult).containsOnly(row(EXPECTED_TIMESTAMP, null, EXPECTED_TIMESTAMP));
     }
 
     @Test(dataProvider = "storage_formats", groups = {HIVE_CONNECTOR, TIMESTAMP})
