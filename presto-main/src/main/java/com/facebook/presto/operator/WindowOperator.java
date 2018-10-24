@@ -29,6 +29,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -166,16 +168,17 @@ public class WindowOperator
 
     private final int[] preGroupedChannels;
 
-    private final PagesIndex pagesIndex;
     private final PagesHashStrategy preGroupedPartitionHashStrategy;
     private final PagesHashStrategy unGroupedPartitionHashStrategy;
     private final PagesHashStrategy preSortedPartitionHashStrategy;
     private final PagesHashStrategy peerGroupHashStrategy;
 
-    private final WorkProcessor<Page> outputPages;
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
     private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
 
+    private final WorkProcessor<Page> outputPages;
+    private final PagesIndex pagesIndex;
+    @Nullable
     private Page pendingInput;
     private boolean operatorFinishing;
 
