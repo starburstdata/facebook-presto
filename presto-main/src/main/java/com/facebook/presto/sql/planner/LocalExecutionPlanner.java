@@ -214,6 +214,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillOrderBy;
+import static com.facebook.presto.SystemSessionProperties.isSpillWindowOperator;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
@@ -929,7 +930,9 @@ public class LocalExecutionPlanner
                     sortOrder,
                     node.getPreSortedOrderPrefix(),
                     10_000,
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    isSpillEnabled(session) && isSpillWindowOperator(session),
+                    spillerFactory);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
