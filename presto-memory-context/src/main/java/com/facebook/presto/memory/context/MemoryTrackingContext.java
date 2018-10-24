@@ -93,7 +93,7 @@ public final class MemoryTrackingContext
 
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        verify(revocableLocalMemoryContext != null, "local memory contexts are not initalized");
+        verify(revocableLocalMemoryContext != null, "local memory contexts are not initialized");
         return revocableLocalMemoryContext;
     }
 
@@ -110,6 +110,11 @@ public final class MemoryTrackingContext
     public AggregatedMemoryContext aggregateUserMemoryContext()
     {
         return userAggregateMemoryContext;
+    }
+
+    public AggregatedMemoryContext aggregateRevocableMemoryContext()
+    {
+        return revocableAggregateMemoryContext;
     }
 
     public AggregatedMemoryContext newAggregateSystemMemoryContext()
