@@ -309,12 +309,6 @@ public class WindowOperator
         return outputPages.getResult();
     }
 
-    @Override
-    public void close()
-    {
-        driverWindowInfo.set(Optional.of(windowInfo.build()));
-    }
-
     private class ProduceWindowResults
             implements WorkProcessor.Transformation<WindowPartition, Page>
     {
@@ -435,24 +429,6 @@ public class WindowOperator
         }
     }
 
-    private void sortPagesIndexIfNecessary()
-    {
-        if (pagesIndex.getPositionCount() > 1 && !orderChannels.isEmpty()) {
-            int startPosition = 0;
-            while (startPosition < pagesIndex.getPositionCount()) {
-                int endPosition = findGroupEnd(pagesIndex, preSortedPartitionHashStrategy, startPosition);
-                pagesIndex.sort(orderChannels, ordering, startPosition, endPosition);
-                startPosition = endPosition;
-            }
-        }
-    }
-
-    private void finishPagesIndex()
-    {
-        sortPagesIndexIfNecessary();
-        windowInfo.addIndex(pagesIndex);
-    }
-
     private Page updatePagesIndex(Page page)
     {
         checkArgument(page.getPositionCount() > 0);
@@ -481,13 +457,31 @@ public class WindowOperator
         }
     }
 
-    private Page rearrangePage(Page page, int[] channels)
+    private static Page rearrangePage(Page page, int[] channels)
     {
         Block[] newBlocks = new Block[channels.length];
         for (int i = 0; i < channels.length; i++) {
             newBlocks[i] = page.getBlock(channels[i]);
         }
         return new Page(page.getPositionCount(), newBlocks);
+    }
+
+    private void sortPagesIndexIfNecessary()
+    {
+        if (pagesIndex.getPositionCount() > 1 && !orderChannels.isEmpty()) {
+            int startPosition = 0;
+            while (startPosition < pagesIndex.getPositionCount()) {
+                int endPosition = findGroupEnd(pagesIndex, preSortedPartitionHashStrategy, startPosition);
+                pagesIndex.sort(orderChannels, ordering, startPosition, endPosition);
+                startPosition = endPosition;
+            }
+        }
+    }
+
+    private void finishPagesIndex()
+    {
+        sortPagesIndexIfNecessary();
+        windowInfo.addIndex(pagesIndex);
     }
 
     // Assumes input grouped on relevant pagesHashStrategy columns
@@ -563,5 +557,11 @@ public class WindowOperator
 
         // the input is sorted, but the algorithm has still failed
         throw new IllegalArgumentException("failed to find a group ending");
+    }
+
+    @Override
+    public void close()
+    {
+        driverWindowInfo.set(Optional.of(windowInfo.build()));
     }
 }
