@@ -311,10 +311,10 @@ public class WindowOperator
     private class ProducePagesIndexes
             implements WorkProcessor.Process<PagesIndex>
     {
-        private final LocalMemoryContext memoryContext;
-        private boolean resetPagesIndex;
+        final LocalMemoryContext memoryContext;
+        boolean resetPagesIndex;
 
-        private ProducePagesIndexes(AggregatedMemoryContext memoryContext)
+        ProducePagesIndexes(AggregatedMemoryContext memoryContext)
         {
             this.memoryContext = memoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
         }
@@ -349,7 +349,7 @@ public class WindowOperator
             return yield();
         }
 
-        private void updateMemoryUsage()
+        void updateMemoryUsage()
         {
             long bytes = pagesIndex.getEstimatedSize().toBytes();
 
@@ -387,9 +387,9 @@ public class WindowOperator
     private class ProduceWindowResults
             implements WorkProcessor.Transformation<WindowPartition, Page>
     {
-        private final PageBuilder pageBuilder;
+        final PageBuilder pageBuilder;
 
-        private ProduceWindowResults()
+        ProduceWindowResults()
         {
             pageBuilder = new PageBuilder(outputTypes);
         }
