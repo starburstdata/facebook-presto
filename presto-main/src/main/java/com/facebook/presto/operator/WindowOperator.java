@@ -309,73 +309,6 @@ public class WindowOperator
         return outputPages.getResult();
     }
 
-    private class ProduceWindowResults
-            implements WorkProcessor.Transformation<WindowPartition, Page>
-    {
-        private final PageBuilder pageBuilder;
-
-        private ProduceWindowResults()
-        {
-            pageBuilder = new PageBuilder(outputTypes);
-        }
-
-        @Override
-        public WorkProcessor.ProcessorState<Page> process(Optional<WindowPartition> partitionOptional)
-        {
-            boolean finishing = !partitionOptional.isPresent();
-            if (finishing) {
-                if (pageBuilder.isEmpty()) {
-                    return finished();
-                }
-
-                // flush remaining page builder data
-                Page page = pageBuilder.build();
-                pageBuilder.reset();
-                return ofResult(page, false);
-            }
-
-            WindowPartition partition = partitionOptional.get();
-            while (!pageBuilder.isFull()) {
-                if (!partition.hasNext()) {
-                    return needsMoreData();
-                }
-
-                partition.processNextRow(pageBuilder);
-            }
-
-            Page page = pageBuilder.build();
-            pageBuilder.reset();
-            return ofResult(page, !partition.hasNext());
-        }
-    }
-
-    private class ProduceWindowPartitions
-            implements Function<PagesIndex, WorkProcessor<WindowPartition>>
-    {
-        @Override
-        public WorkProcessor<WindowPartition> apply(PagesIndex pagesIndex)
-        {
-            return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
-            {
-                int partitionStart;
-
-                @Override
-                public WorkProcessor.ProcessorState<WindowPartition> process()
-                {
-                    if (partitionStart == pagesIndex.getPositionCount()) {
-                        return finished();
-                    }
-
-                    int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
-                    WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
-                    windowInfo.addPartition(partition);
-                    partitionStart = partitionEnd;
-                    return ofResult(partition);
-                }
-            });
-        }
-    }
-
     private class ProducePagesIndexes
             implements WorkProcessor.Process<PagesIndex>
     {
@@ -426,6 +359,73 @@ public class WindowOperator
             }
 
             memoryContext.setBytes(bytes);
+        }
+    }
+
+    private class ProduceWindowPartitions
+            implements Function<PagesIndex, WorkProcessor<WindowPartition>>
+    {
+        @Override
+        public WorkProcessor<WindowPartition> apply(PagesIndex pagesIndex)
+        {
+            return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
+            {
+                int partitionStart;
+
+                @Override
+                public WorkProcessor.ProcessorState<WindowPartition> process()
+                {
+                    if (partitionStart == pagesIndex.getPositionCount()) {
+                        return finished();
+                    }
+
+                    int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
+                    WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
+                    windowInfo.addPartition(partition);
+                    partitionStart = partitionEnd;
+                    return ofResult(partition);
+                }
+            });
+        }
+    }
+
+    private class ProduceWindowResults
+            implements WorkProcessor.Transformation<WindowPartition, Page>
+    {
+        private final PageBuilder pageBuilder;
+
+        private ProduceWindowResults()
+        {
+            pageBuilder = new PageBuilder(outputTypes);
+        }
+
+        @Override
+        public WorkProcessor.ProcessorState<Page> process(Optional<WindowPartition> partitionOptional)
+        {
+            boolean finishing = !partitionOptional.isPresent();
+            if (finishing) {
+                if (pageBuilder.isEmpty()) {
+                    return finished();
+                }
+
+                // flush remaining page builder data
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return ofResult(page, false);
+            }
+
+            WindowPartition partition = partitionOptional.get();
+            while (!pageBuilder.isFull()) {
+                if (!partition.hasNext()) {
+                    return needsMoreData();
+                }
+
+                partition.processNextRow(pageBuilder);
+            }
+
+            Page page = pageBuilder.build();
+            pageBuilder.reset();
+            return ofResult(page, !partition.hasNext());
         }
     }
 
