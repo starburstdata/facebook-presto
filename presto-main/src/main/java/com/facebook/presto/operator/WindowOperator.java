@@ -351,13 +351,7 @@ public class WindowOperator
 
         void updateMemoryUsage()
         {
-            long bytes = pagesIndex.getEstimatedSize().toBytes();
-
-            if (pendingInput != null) {
-                bytes += pendingInput.getRetainedSizeInBytes();
-            }
-
-            memoryContext.setBytes(bytes);
+            memoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
         }
     }
 
