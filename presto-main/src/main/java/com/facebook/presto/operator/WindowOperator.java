@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.WorkProcessor.ProcessorState;
+import com.facebook.presto.operator.WorkProcessor.Transformation;
 import com.facebook.presto.operator.window.FramedWindowFunction;
 import com.facebook.presto.operator.window.WindowPartition;
 import com.facebook.presto.spi.Page;
@@ -28,6 +31,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -35,6 +40,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.finished;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.needsMoreData;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.ofResult;
+import static com.facebook.presto.operator.WorkProcessor.ProcessorState.yield;
 import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -151,40 +160,28 @@ public class WindowOperator
         }
     }
 
-    private enum State
-    {
-        NEEDS_INPUT,
-        HAS_OUTPUT,
-        FINISHING,
-        FINISHED
-    }
-
     private final OperatorContext operatorContext;
+    private final List<Type> outputTypes;
     private final int[] outputChannels;
     private final List<FramedWindowFunction> windowFunctions;
     private final List<Integer> orderChannels;
     private final List<SortOrder> ordering;
-    private final LocalMemoryContext localUserMemoryContext;
 
     private final int[] preGroupedChannels;
 
+    private final PagesIndex pagesIndex;
     private final PagesHashStrategy preGroupedPartitionHashStrategy;
     private final PagesHashStrategy unGroupedPartitionHashStrategy;
     private final PagesHashStrategy preSortedPartitionHashStrategy;
     private final PagesHashStrategy peerGroupHashStrategy;
 
-    private final PagesIndex pagesIndex;
-
-    private final PageBuilder pageBuilder;
-
     private final WindowInfo.DriverWindowInfoBuilder windowInfo;
     private final AtomicReference<Optional<WindowInfo.DriverWindowInfo>> driverWindowInfo = new AtomicReference<>(Optional.empty());
 
-    private State state = State.NEEDS_INPUT;
-
-    private WindowPartition partition;
-
+    private final WorkProcessor<Page> outputPages;
+    @Nullable
     private Page pendingInput;
+    private boolean operatorFinishing;
 
     public WindowOperator(
             OperatorContext operatorContext,
@@ -213,13 +210,12 @@ public class WindowOperator
         checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
 
         this.operatorContext = operatorContext;
-        this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         this.outputChannels = Ints.toArray(outputChannels);
         this.windowFunctions = windowFunctionDefinitions.stream()
                 .map(functionDefinition -> new FramedWindowFunction(functionDefinition.createWindowFunction(), functionDefinition.getFrameInfo()))
                 .collect(toImmutableList());
 
-        List<Type> types = Stream.concat(
+        this.outputTypes = Stream.concat(
                 outputChannels.stream()
                         .map(sourceTypes::get),
                 windowFunctionDefinitions.stream()
@@ -239,8 +235,6 @@ public class WindowOperator
         this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
         this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
 
-        this.pageBuilder = new PageBuilder(types);
-
         if (preSortedChannelPrefix > 0) {
             // This already implies that set(preGroupedChannels) == set(partitionChannels) (enforced with checkArgument)
             this.orderChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedChannelPrefix));
@@ -251,6 +245,10 @@ public class WindowOperator
             this.orderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
             this.ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
         }
+
+        this.outputPages = WorkProcessor.create(new ProducePagesIndexes(operatorContext.aggregateUserMemoryContext()))
+                .flatMap(this::pagesIndexToWindowPartitions)
+                .transform(new WindowPartitionsToOutputPages());
 
         windowInfo = new WindowInfo.DriverWindowInfoBuilder();
         operatorContext.setInfoSupplier(this::getWindowInfo);
@@ -270,32 +268,24 @@ public class WindowOperator
     @Override
     public void finish()
     {
-        if (state == State.FINISHING || state == State.FINISHED) {
-            return;
-        }
-        if (state == State.NEEDS_INPUT) {
-            // Since was waiting for more input, prepare what we have for output since we will not be getting any more input
-            finishPagesIndex();
-        }
-        state = State.FINISHING;
+        operatorFinishing = true;
     }
 
     @Override
     public boolean isFinished()
     {
-        return state == State.FINISHED;
+        return outputPages.isFinished();
     }
 
     @Override
     public boolean needsInput()
     {
-        return state == State.NEEDS_INPUT;
+        return pendingInput == null && !operatorFinishing;
     }
 
     @Override
     public void addInput(Page page)
     {
-        checkState(state == State.NEEDS_INPUT, "Operator can not take input at this time");
         requireNonNull(page, "page is null");
         checkState(pendingInput == null, "Operator already has pending input");
 
@@ -304,34 +294,134 @@ public class WindowOperator
         }
 
         pendingInput = page;
-        if (processPendingInput()) {
-            state = State.HAS_OUTPUT;
-        }
-        localUserMemoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
     }
 
-    /**
-     * @return true if a full group has been buffered after processing the pendingInput, false otherwise
-     */
-    private boolean processPendingInput()
+    @Override
+    public Page getOutput()
     {
-        checkState(pendingInput != null);
-        pendingInput = updatePagesIndex(pendingInput);
-
-        // If we have unused input or are finishing, then we have buffered a full group
-        if (pendingInput != null || state == State.FINISHING) {
-            finishPagesIndex();
-            return true;
+        if (!outputPages.process()) {
+            return null;
         }
-        else {
-            return false;
+
+        if (outputPages.isFinished()) {
+            return null;
+        }
+
+        return outputPages.getResult();
+    }
+
+    private class ProducePagesIndexes
+            implements WorkProcessor.Process<PagesIndex>
+    {
+        final LocalMemoryContext memoryContext;
+        boolean resetPagesIndex;
+
+        ProducePagesIndexes(AggregatedMemoryContext memoryContext)
+        {
+            this.memoryContext = memoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
+        }
+
+        @Override
+        public ProcessorState<PagesIndex> process()
+        {
+            if (resetPagesIndex) {
+                pagesIndex.clear();
+                updateMemoryUsage();
+                resetPagesIndex = false;
+            }
+
+            if (operatorFinishing && pendingInput == null && pagesIndex.getPositionCount() == 0) {
+                memoryContext.close();
+                return finished();
+            }
+
+            if (pendingInput != null) {
+                pendingInput = updatePagesIndex(pendingInput);
+                updateMemoryUsage();
+            }
+
+            // If we have unused input or are finishing, then we have buffered a full group
+            if (pendingInput != null || operatorFinishing) {
+                finishPagesIndex();
+                resetPagesIndex = true;
+                return ofResult(pagesIndex);
+            }
+
+            // pendingInput == null && !operatorFinishing
+            return yield();
+        }
+
+        void updateMemoryUsage()
+        {
+            memoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
         }
     }
 
-    /**
-     * @return the unused section of the page, or null if fully applied.
-     * pagesIndex guaranteed to have at least one row after this method returns
-     */
+    private WorkProcessor<WindowPartition> pagesIndexToWindowPartitions(PagesIndex pagesIndex)
+    {
+        requireNonNull(pagesIndex, "pagesIndex is null");
+
+        // pagesIndex contains the full grouped & sorted data for one or more partitions
+
+        return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
+        {
+            int partitionStart;
+
+            @Override
+            public ProcessorState<WindowPartition> process()
+            {
+                if (partitionStart == pagesIndex.getPositionCount()) {
+                    return finished();
+                }
+
+                int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
+                WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
+                windowInfo.addPartition(partition);
+                partitionStart = partitionEnd;
+                return ofResult(partition);
+            }
+        });
+    }
+
+    private class WindowPartitionsToOutputPages
+            implements Transformation<WindowPartition, Page>
+    {
+        final PageBuilder pageBuilder;
+
+        WindowPartitionsToOutputPages()
+        {
+            pageBuilder = new PageBuilder(outputTypes);
+        }
+
+        @Override
+        public ProcessorState<Page> process(Optional<WindowPartition> partitionOptional)
+        {
+            boolean finishing = !partitionOptional.isPresent();
+            if (finishing) {
+                if (pageBuilder.isEmpty()) {
+                    return finished();
+                }
+
+                // Output the remaining page if we have anything buffered
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return ofResult(page, false);
+            }
+
+            WindowPartition partition = partitionOptional.get();
+            while (!pageBuilder.isFull() && partition.hasNext()) {
+                partition.processNextRow(pageBuilder);
+            }
+            if (!pageBuilder.isFull()) {
+                return needsMoreData();
+            }
+
+            Page page = pageBuilder.build();
+            pageBuilder.reset();
+            return ofResult(page, !partition.hasNext());
+        }
+    }
+
     private Page updatePagesIndex(Page page)
     {
         checkArgument(page.getPositionCount() > 0);
@@ -367,65 +457,6 @@ public class WindowOperator
             newBlocks[i] = page.getBlock(channels[i]);
         }
         return new Page(page.getPositionCount(), newBlocks);
-    }
-
-    @Override
-    public Page getOutput()
-    {
-        if (state == State.NEEDS_INPUT || state == State.FINISHED) {
-            return null;
-        }
-
-        Page page = extractOutput();
-        localUserMemoryContext.setBytes(pagesIndex.getEstimatedSize().toBytes());
-        return page;
-    }
-
-    private Page extractOutput()
-    {
-        // INVARIANT: pagesIndex contains the full grouped & sorted data for one or more partitions
-
-        // Iterate through the positions sequentially until we have one full page
-        while (!pageBuilder.isFull()) {
-            if (partition == null || !partition.hasNext()) {
-                int partitionStart = partition == null ? 0 : partition.getPartitionEnd();
-
-                if (partitionStart >= pagesIndex.getPositionCount()) {
-                    // Finished all of the partitions in the current pagesIndex
-                    partition = null;
-                    pagesIndex.clear();
-
-                    // Try to extract more partitions from the pendingInput
-                    if (pendingInput != null && processPendingInput()) {
-                        partitionStart = 0;
-                    }
-                    else if (state == State.FINISHING) {
-                        state = State.FINISHED;
-                        // Output the remaining page if we have anything buffered
-                        if (!pageBuilder.isEmpty()) {
-                            Page page = pageBuilder.build();
-                            pageBuilder.reset();
-                            return page;
-                        }
-                        return null;
-                    }
-                    else {
-                        state = State.NEEDS_INPUT;
-                        return null;
-                    }
-                }
-
-                int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
-                partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
-                windowInfo.addPartition(partition);
-            }
-
-            partition.processNextRow(pageBuilder);
-        }
-
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-        return page;
     }
 
     private void sortPagesIndexIfNecessary()
