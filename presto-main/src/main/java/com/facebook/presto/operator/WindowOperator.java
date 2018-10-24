@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.operator.WorkProcessor.ProcessorState.finished;
@@ -246,7 +245,7 @@ public class WindowOperator
         }
 
         this.outputPages = WorkProcessor.create(new ProducePagesIndexes(operatorContext.aggregateUserMemoryContext()))
-                .flatMap(new ProduceWindowPartitions())
+                .flatMap(this::produceWindowPartitions)
                 .transform(new ProduceWindowResults());
 
         windowInfo = new WindowInfo.DriverWindowInfoBuilder();
@@ -362,31 +361,27 @@ public class WindowOperator
         }
     }
 
-    private class ProduceWindowPartitions
-            implements Function<PagesIndex, WorkProcessor<WindowPartition>>
+    private WorkProcessor<WindowPartition> produceWindowPartitions(PagesIndex pagesIndex)
     {
-        @Override
-        public WorkProcessor<WindowPartition> apply(PagesIndex pagesIndex)
+        requireNonNull(pagesIndex, "pagesIndex is null");
+        return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
         {
-            return WorkProcessor.create(new WorkProcessor.Process<WindowPartition>()
+            int partitionStart;
+
+            @Override
+            public WorkProcessor.ProcessorState<WindowPartition> process()
             {
-                int partitionStart;
-
-                @Override
-                public WorkProcessor.ProcessorState<WindowPartition> process()
-                {
-                    if (partitionStart == pagesIndex.getPositionCount()) {
-                        return finished();
-                    }
-
-                    int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
-                    WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
-                    windowInfo.addPartition(partition);
-                    partitionStart = partitionEnd;
-                    return ofResult(partition);
+                if (partitionStart == pagesIndex.getPositionCount()) {
+                    return finished();
                 }
-            });
-        }
+
+                int partitionEnd = findGroupEnd(pagesIndex, unGroupedPartitionHashStrategy, partitionStart);
+                WindowPartition partition = new WindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy);
+                windowInfo.addPartition(partition);
+                partitionStart = partitionEnd;
+                return ofResult(partition);
+            }
+        });
     }
 
     private class ProduceWindowResults
